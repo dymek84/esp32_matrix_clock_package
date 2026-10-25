@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ESP32 Matrix Clock v. 2.0 • Bluetooth Manager</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card-bg: #141b27;
+      --card-border: #222d3d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #388bfd;
+      --accent-hover: #1f6feb;
+      --success: #238636;
+      --success-glow: rgba(35, 134, 54, 0.4);
+      --danger: #da3633;
+      --warning: #d29922;
+      --radius: 12px;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      padding-bottom: 60px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    /* Header & Connection status */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #21262d;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+    }
+    .badge.connected {
+      background: rgba(35, 134, 54, 0.2);
+      color: #3fb950;
+      border-color: rgba(63, 185, 80, 0.4);
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .badge.connected .badge-dot {
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* Buttons */
+    button {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      padding: 10px 16px;
+      transition: all 0.15s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #2ea043; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-secondary { background: #21262d; color: var(--text); border: 1px solid var(--card-border); }
+    .btn-secondary:hover { background: #30363d; }
+    .btn-block { width: 100%; }
+    .btn-large {
+      padding: 16px 20px;
+      font-size: 1.1rem;
+      border-radius: 12px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Time Sync Highlight Card */
+    .sync-card {
+      background: linear-gradient(145deg, #162032 0%, #101622 100%);
+      border: 1px solid #294060;
+      position: relative;
+      overflow: hidden;
+    }
+    .clock-display {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 0;
+      font-family: var(--font-mono);
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #58a6ff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px rgba(88, 166, 255, 0.4);
+    }
+    .clock-date {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: -8px;
+      margin-bottom: 16px;
+    }
+
+    /* Form Controls */
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-label span.val {
+      color: var(--text);
+      font-family: var(--font-mono);
+    }
+    input[type="text"], input[type="number"], input[type="time"], input[type="date"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    input[type="time"] {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      padding: 8px 12px;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      accent-color: var(--accent);
+      background: #30363d;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    /* Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 26px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #30363d;
+      transition: .2s;
+      border-radius: 26px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #238636; }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Alarms Accordion / Grid */
+    .alarm-card {
+      background: #0d1117;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+    .alarm-card.active-alarm {
+      border-color: #388bfd;
+    }
+    .alarm-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .alarm-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 520px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Color Swatches */
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid #21262d;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .swatch:hover {
+      transform: scale(1.15);
+      border-color: #fff;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 999px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      border: 1px solid #374151;
+      font-size: 0.9rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1000;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .notice-box {
+      background: rgba(56, 139, 253, 0.1);
+      border: 1px solid rgba(56, 139, 253, 0.3);
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #79c0ff;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>🕒 Matrix Clock v. 2.0</h1>
+      <p>Direct Bluetooth Low Energy control (Offline / Work mode)</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div id="connBadge" class="badge">
+        <span class="badge-dot"></span>
+        <span id="connText">Disconnected</span>
+      </div>
+      <button id="btnConnect" class="btn-primary" onclick="toggleConnect()">Connect BLE</button>
+    </div>
+  </header>
+
+  <!-- Notice for Web Bluetooth compatibility -->
+  <div class="notice-box" id="bleNotice">
+    💡 <strong>Browser tip:</strong> On Android / Windows / Mac / Linux use <strong>Google Chrome</strong> or <strong>Edge</strong>. On iOS (iPhone/iPad), use the free <strong>Bluefy</strong> browser from the App Store.
+  </div>
+
+  <!-- 1. TIME SYNC (SECOND-LEVEL ACCURACY) -->
+  <div class="card sync-card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">⚡ Instant Phone Time Sync</div>
+        <div class="card-subtitle">Syncs RTC precisely down to the second</div>
+      </div>
+      <span class="badge" style="background:#1f2937;">Phone Time</span>
+    </div>
+
+    <div class="clock-display" id="phoneLiveClock">--:--:--</div>
+    <div class="clock-date" id="phoneLiveDate">Loading system time…</div>
+
+    <button class="btn-success btn-large btn-block" onclick="syncExactPhoneTime()">
+      ⚡ Sync Clock to Phone Time (hh:mm:ss)
+    </button>
+  </div>
+
+  <!-- 2. WEATHER FORECAST & AUTO-SYNC (VIA PHONE CELLULAR DATA) -->
+  <div class="card" style="border: 1px solid #1f6feb;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🌦️ Weather Forecast Sync</div>
+        <div class="card-subtitle">Pushes local weather & time over Bluetooth (No Hotspot needed!)</div>
+      </div>
+      <span class="badge" style="background:#1f2937; color:#79c0ff;">Open-Meteo & Custom</span>
+    </div>
+
+    <!-- Live Preview Banner -->
+    <div style="display:flex; justify-content:space-between; align-items:center; background:#0d1117; padding:12px 16px; border-radius:8px; margin-bottom:14px; border:1px solid #30363d;">
+      <div>
+        <div style="font-size:0.8rem; color:var(--text-muted);">Current Forecast:</div>
+        <div id="weatherDisplay" style="font-size:1.25rem; font-weight:700; color:#58a6ff;">21°C Partly Cloudy</div>
+        <div id="solarTimesDisplay" style="font-size:0.8rem; color:#79c0ff; margin-top:3px;">🌅 Dawn: --:-- | 🌇 Dusk: --:--</div>
+      </div>
+      <div id="weatherIcon" style="font-size:2.2rem;">⛅</div>
+    </div>
+
+    <!-- Custom / Editable Controls -->
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <div class="form-label">Condition / Sky</div>
+        <select id="weatherConditionSelect" onchange="onManualWeatherSelect()">
+          <option value="Sunny" data-icon="☀️">☀️ Sunny</option>
+          <option value="Clear" data-icon="✨">✨ Clear Sky</option>
+          <option value="Mainly Clear" data-icon="🌤️">🌤️ Mainly Clear</option>
+          <option value="Partly Cloudy" data-icon="⛅" selected>⛅ Partly Cloudy</option>
+          <option value="Cloudy" data-icon="☁️">☁️ Cloudy</option>
+          <option value="Overcast" data-icon="☁️">☁️ Overcast</option>
+          <option value="Foggy" data-icon="🌫️">🌫️ Fog / Mist</option>
+          <option value="Drizzle" data-icon="🌦️">🌦️ Light Drizzle</option>
+          <option value="Light Rain" data-icon="🌦️">🌦️ Light Rain</option>
+          <option value="Rain" data-icon="🌧️">🌧️ Moderate Rain</option>
+          <option value="Heavy Rain" data-icon="🌧️">🌧️ Heavy Rain</option>
+          <option value="Showers" data-icon="🌦️">🌦️ Rain Showers</option>
+          <option value="Thunderstorm" data-icon="🌩️">🌩️ Thunderstorm</option>
+          <option value="Storm" data-icon="⛈️">⛈️ Severe Storm</option>
+          <option value="Freezing Rain" data-icon="🌨️">🌨️ Freezing Rain / Sleet</option>
+          <option value="Light Snow" data-icon="❄️">❄️ Light Snow</option>
+          <option value="Snow" data-icon="❄️">❄️ Moderate Snow</option>
+          <option value="Heavy Snow" data-icon="☃️">☃️ Heavy Snow</option>
+          <option value="Windy" data-icon="💨">💨 Windy</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0;">
+        <div class="form-label">
+          <span>Temperature (°C)</span>
+          <span class="val" id="weatherTempDisplay">21°C</span>
+        </div>
+        <input type="number" id="weatherTempInput" value="21" min="-40" max="55" step="1" oninput="onManualTempInput()">
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="grid-2" style="margin-bottom:8px;">
+      <button class="btn-primary" onclick="sendCustomOrFetchedWeather()">
+        📡 Send Weather to Clock
+      </button>
+      <button class="btn-secondary" onclick="fetchAndSendWeather()">
+        📍 Auto-Fetch from GPS
+      </button>
+    </div>
+
+    <div style="margin-bottom:8px;">
+      <button class="btn-secondary btn-block" style="background:#1b2432; border-color:#388bfd; color:#79c0ff;" onclick="showWeatherScreenOnClock()">
+        📺 Show 16x16 Weather Screen on Clock
+      </button>
+    </div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; background:#0d1117; padding:8px 12px; border-radius:8px; border:1px solid #30363d; margin-top:8px;">
+      <div>
+        <div style="font-size:0.85rem; font-weight:600;">Hourly Auto-Sync</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Auto-fetches GPS forecast & syncs clock every 60 min</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="autoWeatherSyncSwitch" onchange="toggleAutoWeather(this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 3. ALARMS CONFIGURATION (INDIVIDUAL LENGTH, BEEPS & INTERVALS) -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🔔 Individual Alarms</div>
+        <div class="card-subtitle">Customize duration, beep amounts, and cadence per alarm</div>
+      </div>
+      <button class="btn-danger" style="padding:6px 12px; font-size:0.85rem;" onclick="stopActiveAlarm()">Stop Alarm</button>
+    </div>
+
+    <div id="alarmsContainer">
+      <!-- 4 Alarms generated dynamically -->
+    </div>
+
+    <button class="btn-primary btn-block" style="margin-top:10px;" onclick="saveAllAlarms()">
+      💾 Save All Alarms to Clock
+    </button>
+  </div>
+
+  <!-- 3. DISPLAY & COLOR SETTINGS -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🎨 Display & Style</div>
+        <div class="card-subtitle">Color, brightness & colon animation</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">
+        <span>Clock & Alarm Color</span>
+        <span class="val" id="colorValHex">#006EFF</span>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <input type="color" id="clockColorPicker" value="#006EFF" style="height:44px; width:60px; padding:2px; border-radius:6px; cursor:pointer;" oninput="onColorChange(this.value)">
+        <div class="color-swatches">
+          <div class="swatch" style="background:#006EFF;" onclick="setColor('#006EFF')"></div>
+          <div class="swatch" style="background:#00FFCC;" onclick="setColor('#00FFCC')"></div>
+          <div class="swatch" style="background:#00FF66;" onclick="setColor('#00FF66')"></div>
+          <div class="swatch" style="background:#FFAA00;" onclick="setColor('#FFAA00')"></div>
+          <div class="swatch" style="background:#FF3366;" onclick="setColor('#FF3366')"></div>
+          <div class="swatch" style="background:#AA00FF;" onclick="setColor('#AA00FF')"></div>
+          <div class="swatch" style="background:#FFFFFF;" onclick="setColor('#FFFFFF')"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">
+        <span>Brightness</span>
+        <span class="val" id="brightnessVal">36 (14%)</span>
+      </div>
+      <input type="range" id="brightnessRange" min="5" max="255" value="36" oninput="onBrightnessChange(this.value)">
+    </div>
+
+    <div class="form-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+      <div>
+        <div style="font-weight:600;">Blink Colon Each Second</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);">Pulsing colon animation on matrix</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="blinkColonSwitch" checked onchange="onBlinkChange(this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 4. QUICK TOOLS & TEST -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">💬 Message Banner & Sound Test</div>
+        <div class="card-subtitle">Scroll custom text and test buzzer hardware</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Scroll Text Message</div>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="customBannerText" placeholder="Enter message to scroll..." maxlength="60">
+        <button class="btn-secondary" onclick="sendScrollBanner()">Send</button>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:8px;">
+      <button class="btn-secondary" onclick="testHourlyChimeSound()">🔔 Test Chime (1 Beep)</button>
+      <button class="btn-secondary" onclick="testBuzzerSound()">🔊 Test Buzzer (3s)</button>
+    </div>
+    <button class="btn-danger btn-block" onclick="stopActiveAlarm()">⏹ Silence / Stop Alarm</button>
+  </div>
+
+  <!-- 5. MATRIX DISPLAY SHOWCASE (5-SECOND DEMOS) -->
+  <div class="card" style="border: 1px solid #8957e5;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">✨ Matrix Display Showcase (5s)</div>
+        <div class="card-subtitle">Test the 3 startup animations on the 48×16 matrix</div>
+      </div>
+      <span class="badge" style="background:#281c48; color:#d2a8ff; border-color:#8957e5;">3 Variants</span>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:8px;">
+      <button class="btn-secondary" style="background:#131826; border-color:#388bfd;" onclick="playMatrixAnimation(0)">
+        🌌 Variant 1: Aurora Plasma
+      </button>
+      <button class="btn-secondary" style="background:#131826; border-color:#2ea043;" onclick="playMatrixAnimation(1)">
+        ⚡ Variant 2: Cyber Matrix Rain
+      </button>
+    </div>
+
+    <div class="grid-2">
+      <button class="btn-secondary" style="background:#131826; border-color:#d29922;" onclick="playMatrixAnimation(2)">
+        🌟 Variant 3: Supernova Shockwave
+      </button>
+      <button class="btn-primary" style="background:linear-gradient(135deg, #8957e5, #388bfd);" onclick="playMatrixAnimation(255)">
+        🎲 Play Random Showcase (5s)
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast popup for notifications -->
+  <div id="toast">Settings updated</div>
+
+  <script>
+    // BLE UUID constants matching ESP32 firmware
+    const SERVICE_UUID        = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+
+    let bleDevice = null;
+    let bleCharacteristic = null;
+    let isConnected = false;
+
+    // Alarm presets & state
+    let alarmsState = [
+      { id: 1, en: true, h: 9, m: 29, dur: 60, beeps: 2, pause: 1000, inter: 10, txt: "Pause" },
+      { id: 2, en: true, h: 12, m: 29, dur: 60, beeps: 2, pause: 1000, inter: 10, txt: "Pause" },
+      { id: 3, en: true, h: 14, m: 59, dur: 30, beeps: 3, pause: 1500, inter: 5,  txt: "Coffie" },
+      { id: 4, en: true, h: 15, m: 55, dur: 300, beeps: 2, pause: 1000, inter: 10, txt: "Fininsh" }
+    ];
+
+    // Live clock ticker
+    function updatePhoneLiveClock() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const dateStr = now.toLocaleDateString(undefined, options);
+
+      document.getElementById('phoneLiveClock').textContent = timeStr;
+      document.getElementById('phoneLiveDate').textContent = dateStr;
+    }
+    setInterval(updatePhoneLiveClock, 1000);
+    updatePhoneLiveClock();
+
+    // Toast helper
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // Render Alarms Form
+    function renderAlarms() {
+      const container = document.getElementById('alarmsContainer');
+      container.innerHTML = '';
+
+      alarmsState.forEach((a, idx) => {
+        const pad = n => String(n).padStart(2, '0');
+        const timeVal = `${pad(a.h)}:${pad(a.m)}`;
+
+        const card = document.createElement('div');
+        card.className = 'alarm-card' + (a.en ? ' active-alarm' : '');
+        card.id = `alarmCard_${a.id}`;
+
+        card.innerHTML = `
+          <div class="alarm-card-header">
+            <div class="alarm-title">
+              <span>Alarm ${a.id}</span>
+              <span style="font-family:var(--font-mono); font-size:1.1rem; color:#58a6ff;">${timeVal}</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="alarmEn_${a.id}" ${a.en ? 'checked' : ''} onchange="onAlarmToggle(${a.id}, this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <div class="form-label">Time (HH:MM)</div>
+              <input type="time" id="alarmTime_${a.id}" value="${timeVal}" onchange="updateAlarmData(${a.id})">
+            </div>
+
+            <div class="form-group">
+              <div class="form-label">
+                <span>Alarm Length</span>
+                <span class="val" id="alarmDurLabel_${a.id}">${a.dur}s</span>
+              </div>
+              <input type="range" id="alarmDur_${a.id}" min="5" max="600" step="5" value="${a.dur}" oninput="document.getElementById('alarmDurLabel_${a.id}').textContent = this.value + 's'; updateAlarmData(${a.id})">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <div class="form-label">
+                <span>Beeps Amount</span>
+                <span class="val" id="alarmBeepsLabel_${a.id}">${a.beeps} beeps</span>
+              </div>
+              <input type="range" id="alarmBeeps_${a.id}" min="1" max="6" step="1" value="${a.beeps}" oninput="document.getElementById('alarmBeepsLabel_${a.id}').textContent = this.value + (this.value == 1 ? ' beep' : ' beeps'); updateAlarmData(${a.id})">
+            </div>
+
+            <div class="form-group">
+              <div class="form-label">
+                <span>Time Between Beeps</span>
+                <span class="val" id="alarmPauseLabel_${a.id}">${(a.pause / 1000).toFixed(1)}s</span>
+              </div>
+              <input type="range" id="alarmPause_${a.id}" min="200" max="4000" step="100" value="${a.pause}" oninput="document.getElementById('alarmPauseLabel_${a.id}').textContent = (this.value/1000).toFixed(1) + 's'; updateAlarmData(${a.id})">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">Scrolling Banner Text (Matches Clock Color)</div>
+            <input type="text" id="alarmTxt_${a.id}" value="${a.txt || ''}" placeholder="e.g. Work Break..." maxlength="30" onchange="updateAlarmData(${a.id})">
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn-secondary" style="padding:6px 12px; font-size:0.85rem;" onclick="testAlarm(${a.id})">Test Alarm ${a.id}</button>
+            <button class="btn-primary" style="padding:6px 12px; font-size:0.85rem;" onclick="saveSingleAlarm(${a.id})">Apply</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function onAlarmToggle(id, isEnabled) {
+      const a = alarmsState.find(x => x.id === id);
+      if (a) {
+        a.en = isEnabled;
+        const card = document.getElementById(`alarmCard_${id}`);
+        if (card) {
+          if (isEnabled) card.classList.add('active-alarm');
+          else card.classList.remove('active-alarm');
+        }
+        saveSingleAlarm(id);
+      }
+    }
+
+    function updateAlarmData(id) {
+      const a = alarmsState.find(x => x.id === id);
+      if (!a) return;
+
+      const timeInput = document.getElementById(`alarmTime_${id}`).value;
+      if (timeInput) {
+        const parts = timeInput.split(':');
+        a.h = parseInt(parts[0], 10);
+        a.m = parseInt(parts[1], 10);
+      }
+      a.dur = parseInt(document.getElementById(`alarmDur_${id}`).value, 10);
+      a.beeps = parseInt(document.getElementById(`alarmBeeps_${id}`).value, 10);
+      a.pause = parseInt(document.getElementById(`alarmPause_${id}`).value, 10);
+      a.txt = document.getElementById(`alarmTxt_${id}`).value.trim();
+    }
+
+    // Web Bluetooth Operations
+    async function toggleConnect() {
+      if (isConnected) {
+        disconnectBLE();
+      } else {
+        await connectBLE();
+      }
+    }
+
+    async function connectBLE() {
+      if (!navigator.bluetooth) {
+        alert("Web Bluetooth is not supported on this browser.\nPlease use Google Chrome on Android/PC or Bluefy browser on iOS.");
+        return;
+      }
+
+      try {
+        setConnectionStatus("connecting", "Connecting…");
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ name: "ESP32_Clock" }, { namePrefix: "ESP32" }],
+          optionalServices: [SERVICE_UUID]
+        });
+
+        bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        const server = await bleDevice.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+        // Subscribe to notifications from the clock
+        await bleCharacteristic.startNotifications();
+        bleCharacteristic.addEventListener('characteristicvaluechanged', handleNotification);
+
+        isConnected = true;
+        setConnectionStatus("connected", "Connected");
+        showToast("Connected to ESP32 Clock!");
+
+        // Request current status
+        sendPayload({ cmd: "getStatus" });
+      } catch (err) {
+        console.error("BLE connection error:", err);
+        setConnectionStatus("disconnected", "Disconnected");
+        showToast("Connection failed: " + err.message);
+      }
+    }
+
+    function disconnectBLE() {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      }
+      onDisconnected();
+    }
+
+    function onDisconnected() {
+      isConnected = false;
+      bleCharacteristic = null;
+      setConnectionStatus("disconnected", "Disconnected");
+      showToast("Bluetooth Disconnected");
+    }
+
+    function setConnectionStatus(state, label) {
+      const badge = document.getElementById('connBadge');
+      const text = document.getElementById('connText');
+      const btn = document.getElementById('btnConnect');
+
+      badge.className = 'badge ' + state;
+      text.textContent = label;
+
+      if (state === 'connected') {
+        btn.textContent = 'Disconnect';
+        btn.className = 'btn-danger';
+      } else {
+        btn.textContent = 'Connect BLE';
+        btn.className = 'btn-primary';
+      }
+    }
+
+    async function sendPayload(payloadObj) {
+      if (!isConnected || !bleCharacteristic) {
+        showToast("⚠️ Not connected. Please connect Bluetooth first.");
+        return false;
+      }
+      try {
+        const jsonStr = JSON.stringify(payloadObj);
+        const encoder = new TextEncoder();
+        await bleCharacteristic.writeValue(encoder.encode(jsonStr));
+        return true;
+      } catch (err) {
+        console.error("BLE write failed:", err);
+        showToast("Send failed: " + err.message);
+        return false;
+      }
+    }
+
+    function handleNotification(event) {
+      const decoder = new TextDecoder();
+      const text = decoder.decode(event.target.value);
+      try {
+        const msg = JSON.parse(text);
+        console.log("[BLE Incoming]", msg);
+
+        if (msg.type === "status") {
+          if (msg.color) {
+            document.getElementById('clockColorPicker').value = msg.color;
+            document.getElementById('colorValHex').textContent = msg.color.toUpperCase();
+          }
+          if (msg.brightness !== undefined) {
+            document.getElementById('brightnessRange').value = msg.brightness;
+            const pct = Math.round((msg.brightness / 255) * 100);
+            document.getElementById('brightnessVal').textContent = `${msg.brightness} (${pct}%)`;
+          }
+          if (msg.blink !== undefined) {
+            document.getElementById('blinkColonSwitch').checked = !!msg.blink;
+          }
+        } else if (msg.type === "alarms" && Array.isArray(msg.alarms)) {
+          msg.alarms.forEach(incoming => {
+            const found = alarmsState.find(x => x.id === incoming.id);
+            if (found) {
+              if (incoming.en !== undefined) found.en = !!incoming.en;
+              if (incoming.h !== undefined) found.h = incoming.h;
+              if (incoming.m !== undefined) found.m = incoming.m;
+              if (incoming.dur !== undefined) found.dur = incoming.dur;
+              if (incoming.beeps !== undefined) found.beeps = incoming.beeps;
+              if (incoming.pause !== undefined) found.pause = incoming.pause;
+              if (incoming.inter !== undefined) found.inter = incoming.inter;
+              if (incoming.txt !== undefined) found.txt = incoming.txt;
+            }
+          });
+          renderAlarms();
+        } else if (msg.status === "ok") {
+          showToast(msg.message || "Applied successfully!");
+        }
+      } catch (e) {
+        console.log("[BLE Non-JSON]", text);
+      }
+    }
+
+    // Action Handlers
+    async function syncExactPhoneTime() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      // In JavaScript, Date.now() / now.getTime() is UTC.
+      // now.getTimezoneOffset() returns difference in minutes between UTC and local time (negative for UTC+).
+      // Subtracting (now.getTimezoneOffset() * 60) gives local epoch seconds for the RTC:
+      const localEpochSec = Math.floor(now.getTime() / 1000) - (now.getTimezoneOffset() * 60);
+
+      const payload = {
+        epoch: localEpochSec,
+        datetime: {
+          date: dateStr,
+          time: timeStr
+        }
+      };
+
+      const success = await sendPayload(payload);
+      if (success) {
+        showToast(`Clock synced to ${timeStr} ⚡`);
+      }
+    }
+
+    function onColorChange(hex) {
+      document.getElementById('colorValHex').textContent = hex.toUpperCase();
+      sendPayload({ color: hex });
+    }
+
+    function setColor(hex) {
+      document.getElementById('clockColorPicker').value = hex;
+      onColorChange(hex);
+    }
+
+    function onBrightnessChange(val) {
+      const num = parseInt(val, 10);
+      const pct = Math.round((num / 255) * 100);
+      document.getElementById('brightnessVal').textContent = `${num} (${pct}%)`;
+      sendPayload({ brightness: num });
+    }
+
+    function onBlinkChange(val) {
+      sendPayload({ blinkColon: val });
+    }
+
+    async function saveSingleAlarm(id) {
+      updateAlarmData(id);
+      const a = alarmsState.find(x => x.id === id);
+      if (!a) return;
+
+      const payload = {
+        alarm: {
+          id: a.id,
+          enabled: a.en,
+          hour: a.h,
+          minute: a.m,
+          durationSec: a.dur,
+          beepCount: a.beeps,
+          beepIntervalMs: a.pause,
+          textIntervalSec: a.inter,
+          text: a.txt
+        }
+      };
+
+      const success = await sendPayload(payload);
+      if (success) {
+        showToast(`Alarm ${id} saved!`);
+      }
+    }
+
+    async function saveAllAlarms() {
+      alarmsState.forEach(a => updateAlarmData(a.id));
+      const payload = {
+        alarms: alarmsState.map(a => ({
+          id: a.id,
+          enabled: a.en,
+          hour: a.h,
+          minute: a.m,
+          durationSec: a.dur,
+          beepCount: a.beeps,
+          beepIntervalMs: a.pause,
+          textIntervalSec: a.inter,
+          text: a.txt
+        }))
+      };
+
+      const success = await sendPayload(payload);
+      if (success) {
+        showToast("All 4 alarms saved to clock!");
+      }
+    }
+
+    function testAlarm(id) {
+      sendPayload({ cmd: "testAlarm", id: id });
+      showToast(`Testing Alarm ${id}…`);
+    }
+
+    function stopActiveAlarm() {
+      sendPayload({ cmd: "stopAlarm" });
+      showToast("Alarm stopped");
+    }
+
+    function testHourlyChimeSound() {
+      sendPayload({ cmd: "testChime" });
+      showToast("Triggered hourly chime (1 beep) 🔔");
+    }
+
+    function testBuzzerSound() {
+      sendPayload({ cmd: "testBuzzer" });
+      showToast("Testing buzzer (3s)…");
+    }
+
+    function sendScrollBanner() {
+      const txt = document.getElementById('customBannerText').value.trim();
+      if (!txt) {
+        showToast("Please enter text first");
+        return;
+      }
+      sendPayload({ text: txt });
+      showToast(`Scrolling "${txt}"…`);
+    }
+
+    function playMatrixAnimation(variant) {
+      sendPayload({ cmd: "playAnim", variant: variant, duration: 5000 });
+      const names = ["Aurora Plasma", "Cyber Matrix Rain", "Supernova Shockwave"];
+      const label = variant <= 2 ? names[variant] : "Random Showcase";
+      showToast(`Playing 5s animation: ${label} ✨`);
+    }
+
+    // Weather Forecast Functions with full WMO classification
+    function decodeWmoWeather(code) {
+      switch (code) {
+        case 0: return { desc: "Sunny", icon: "☀️" };
+        case 1: return { desc: "Mainly Clear", icon: "🌤️" };
+        case 2: return { desc: "Partly Cloudy", icon: "⛅" };
+        case 3: return { desc: "Overcast", icon: "☁️" };
+        case 45: return { desc: "Foggy", icon: "🌫️" };
+        case 48: return { desc: "Freezing Fog", icon: "🌫️" };
+        case 51: return { desc: "Light Drizzle", icon: "🌦️" };
+        case 53: return { desc: "Drizzle", icon: "🌦️" };
+        case 55: return { desc: "Heavy Drizzle", icon: "🌧️" };
+        case 56:
+        case 57: return { desc: "Freezing Rain", icon: "🌨️" };
+        case 61: return { desc: "Light Rain", icon: "🌦️" };
+        case 63: return { desc: "Rain", icon: "🌧️" };
+        case 65: return { desc: "Heavy Rain", icon: "🌧️" };
+        case 66:
+        case 67: return { desc: "Freezing Rain", icon: "🌨️" };
+        case 71: return { desc: "Light Snow", icon: "❄️" };
+        case 73: return { desc: "Snow", icon: "❄️" };
+        case 75: return { desc: "Heavy Snow", icon: "☃️" };
+        case 77: return { desc: "Snow Grains", icon: "❄️" };
+        case 80: return { desc: "Light Showers", icon: "🌦️" };
+        case 81: return { desc: "Showers", icon: "🌧️" };
+        case 82: return { desc: "Violent Showers", icon: "⛈️" };
+        case 85: return { desc: "Snow Showers", icon: "🌨️" };
+        case 86: return { desc: "Heavy Snow", icon: "☃️" };
+        case 95: return { desc: "Thunderstorm", icon: "🌩️" };
+        case 96:
+        case 99: return { desc: "Storm", icon: "⛈️" };
+        default: return { desc: "Clear", icon: "✨" };
+      }
+    }
+
+    let autoWeatherInterval = null;
+
+    function onManualWeatherSelect() {
+      const select = document.getElementById('weatherConditionSelect');
+      const selectedOption = select.options[select.selectedIndex];
+      const icon = selectedOption.getAttribute('data-icon') || "☀️";
+      const condition = selectedOption.value;
+      const temp = parseInt(document.getElementById('weatherTempInput').value, 10);
+
+      document.getElementById('weatherIcon').textContent = icon;
+      document.getElementById('weatherDisplay').textContent = `${temp}°C ${condition}`;
+    }
+
+    function onManualTempInput() {
+      const temp = parseInt(document.getElementById('weatherTempInput').value, 10);
+      document.getElementById('weatherTempDisplay').textContent = `${temp}°C`;
+      const select = document.getElementById('weatherConditionSelect');
+      const condition = select.value;
+      document.getElementById('weatherDisplay').textContent = `${temp}°C ${condition}`;
+    }
+
+    let currentSunrise = "07:15";
+    let currentSunset = "17:30";
+
+    function computeLocalSolarEstimate() {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 0);
+      const diff = now - start;
+      const oneDay = 1000 * 60 * 60 * 24;
+      const doy = Math.floor(diff / oneDay);
+      const rad = Math.PI / 180;
+      const delta = -23.44 * Math.cos((2 * Math.PI * (doy + 10)) / 365.25) * rad;
+      const phi = 52.0 * rad; // ~52°N Central Europe
+      let cosH0 = (Math.sin(-0.833 * rad) - Math.sin(phi) * Math.sin(delta)) / (Math.cos(phi) * Math.cos(delta));
+      cosH0 = Math.max(-1, Math.min(1, cosH0));
+      const H0_deg = Math.acos(cosH0) * (180 / Math.PI);
+      const halfDayMin = (H0_deg / 15) * 60;
+      const jan = new Date(now.getFullYear(), 0, 1).getTimezoneOffset();
+      const jul = new Date(now.getFullYear(), 6, 1).getTimezoneOffset();
+      const isDST = now.getTimezoneOffset() < Math.max(jan, jul);
+      const noonMin = isDST ? 765 : 705;
+      const riseMin = Math.round(noonMin - halfDayMin);
+      const setMin = Math.round(noonMin + halfDayMin);
+      const pad = n => String(n).padStart(2, '0');
+      currentSunrise = `${pad(Math.floor(riseMin / 60))}:${pad(riseMin % 60)}`;
+      currentSunset = `${pad(Math.floor(setMin / 60))}:${pad(setMin % 60)}`;
+      const currentMin = now.getHours() * 60 + now.getMinutes();
+      const isDay = (currentMin >= riseMin && currentMin < setMin);
+      const disp = document.getElementById('solarTimesDisplay');
+      if (disp) {
+        disp.textContent = `🌅 Dawn: ${currentSunrise} | 🌇 Dusk: ${currentSunset} • ${isDay ? "☀️ Day" : "🌙 Night"}`;
+      }
+    }
+
+    async function sendCustomOrFetchedWeather() {
+      const temp = parseInt(document.getElementById('weatherTempInput').value, 10);
+      const condition = document.getElementById('weatherConditionSelect').value;
+
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const currentMin = now.getHours() * 60 + now.getMinutes();
+      const [rH, rM] = currentSunrise.split(':').map(Number);
+      const [sH, sM] = currentSunset.split(':').map(Number);
+      const isDay = (currentMin >= (rH * 60 + rM) && currentMin < (sH * 60 + sM)) ? 1 : 0;
+
+      const payload = {
+        weather: {
+          temp: temp,
+          desc: condition,
+          isDay: isDay,
+          sunrise: currentSunrise,
+          sunset: currentSunset
+        },
+        datetime: {
+          date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+          time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+        }
+      };
+
+      const ok = await sendPayload(payload);
+      if (ok) {
+        showToast(`Clock updated: ${temp}°C ${condition} (Dawn ${currentSunrise}, Dusk ${currentSunset}) ⚡`);
+      }
+    }
+
+    function showWeatherScreenOnClock() {
+      sendPayload({ cmd: "showWeather", duration: 8000 });
+      showToast("Showing 16x16 weather screen on clock 📺");
+    }
+
+    async function fetchAndSendWeather() {
+      showToast("Fetching local weather…");
+      try {
+        let lat = 52.23; // default fallback (Warsaw)
+        let lon = 21.01;
+
+        if (navigator.geolocation) {
+          try {
+            const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000 }));
+            lat = pos.coords.latitude;
+            lon = pos.coords.longitude;
+          } catch(e) {
+            console.log("Using default coordinates");
+          }
+        }
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const temp = Math.round(data.current.temperature_2m);
+        const weatherInfo = decodeWmoWeather(data.current.weather_code);
+        const isDay = data.current.is_day !== undefined ? data.current.is_day : 1;
+
+        if (data.daily && data.daily.sunrise && data.daily.sunrise[0]) {
+          const parts = data.daily.sunrise[0].split('T');
+          if (parts.length > 1) currentSunrise = parts[1].substring(0, 5);
+        }
+        if (data.daily && data.daily.sunset && data.daily.sunset[0]) {
+          const parts = data.daily.sunset[0].split('T');
+          if (parts.length > 1) currentSunset = parts[1].substring(0, 5);
+        }
+
+        // Update inputs & preview banner
+        document.getElementById('weatherTempInput').value = temp;
+        document.getElementById('weatherTempDisplay').textContent = `${temp}°C`;
+        document.getElementById('weatherIcon').textContent = weatherInfo.icon;
+        document.getElementById('weatherDisplay').textContent = `${temp}°C ${weatherInfo.desc}`;
+        document.getElementById('solarTimesDisplay').textContent = `🌅 Dawn: ${currentSunrise} | 🌇 Dusk: ${currentSunset} • ${isDay ? "☀️ Day" : "🌙 Night"}`;
+
+        // Select matching option in dropdown if present
+        const select = document.getElementById('weatherConditionSelect');
+        for (let i = 0; i < select.options.length; i++) {
+          if (select.options[i].value.toLowerCase() === weatherInfo.desc.toLowerCase()) {
+            select.selectedIndex = i;
+            break;
+          }
+        }
+
+        // Send to clock along with precise time & dynamic dawn/dusk
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const payload = {
+          weather: {
+            temp: temp,
+            desc: weatherInfo.desc,
+            isDay: isDay,
+            sunrise: currentSunrise,
+            sunset: currentSunset
+          },
+          datetime: {
+            date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+            time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+          }
+        };
+
+        const ok = await sendPayload(payload);
+        if (ok) {
+          showToast(`Weather sent: ${temp}°C ${weatherInfo.desc} • Dawn ${currentSunrise} ⚡`);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Weather fetch error: " + err.message);
+      }
+    }
+
+    function toggleAutoWeather(enabled) {
+      if (autoWeatherInterval) {
+        clearInterval(autoWeatherInterval);
+        autoWeatherInterval = null;
+      }
+      if (enabled) {
+        showToast("Auto-sync active (every 60 min)");
+        fetchAndSendWeather();
+        autoWeatherInterval = setInterval(fetchAndSendWeather, 60 * 60 * 1000);
+      }
+    }
+
+    // Initialize UI
+    computeLocalSolarEstimate();
+    renderAlarms();
+  </script>
+</body>
+</html>

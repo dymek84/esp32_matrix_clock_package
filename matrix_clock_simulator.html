@@ -1,0 +1,2001 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ESP32 48×16 Matrix Clock Simulator & Control Studio</title>
+  <style>
+    :root {
+      --bg: #070a10;
+      --card-bg: rgba(18, 24, 38, 0.85);
+      --card-border: rgba(45, 60, 88, 0.55);
+      --card-border-glow: rgba(56, 139, 253, 0.3);
+      --text: #f0f6fc;
+      --text-muted: #8b949e;
+      --accent: #388bfd;
+      --accent-hover: #1f6feb;
+      --success: #238636;
+      --danger: #da3633;
+      --warning: #d29922;
+      --purple: #8957e5;
+      --cyan: #39c5cf;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #151f33 0%, #070a10 70%);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      padding-bottom: 60px;
+      max-width: 1080px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 16px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #58a6ff 0%, #d2a8ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #161b22;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+    }
+
+    .badge.connected {
+      background: rgba(35, 134, 54, 0.2);
+      color: #3fb950;
+      border-color: rgba(63, 185, 80, 0.4);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge.connected .badge-dot {
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* MATRIX HARDWARE BEZEL CONTAINER */
+    .matrix-chassis {
+      background: #000000;
+      border: 14px solid #14171d;
+      border-radius: 18px;
+      box-shadow:
+        0 0 0 2px #262c38,
+        0 20px 50px rgba(0, 0, 0, 0.9),
+        inset 0 0 20px rgba(0, 0, 0, 0.9);
+      padding: 12px;
+      margin-bottom: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .matrix-chassis::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 40%, rgba(0, 0, 0, 0.3) 100%);
+    }
+
+    .matrix-screws {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3b4252;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .screw-tl {
+      top: 6px;
+      left: 6px;
+    }
+
+    .screw-tr {
+      top: 6px;
+      right: 6px;
+    }
+
+    .screw-bl {
+      bottom: 6px;
+      left: 6px;
+    }
+
+    .screw-br {
+      bottom: 6px;
+      right: 6px;
+    }
+
+    .canvas-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #020305;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    canvas#matrixCanvas {
+      width: 100%;
+      height: auto;
+      max-height: 340px;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* Matrix Info Bar */
+    .matrix-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .matrix-status-bar .status-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-val {
+      color: #58a6ff;
+      font-weight: 600;
+    }
+
+    /* Controls Layout */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--card-border-glow);
+    }
+
+    .card-header {
+      display: flex;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* Form & Controls */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-label span.val {
+      color: var(--text);
+      font-family: var(--font-mono);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="time"],
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      accent-color: var(--accent);
+      background: #21262d;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    /* Buttons */
+    button {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      border-radius: 8px;
+      padding: 8px 14px;
+      transition: all 0.15s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      user-select: none;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .btn-success:hover {
+      background: #2ea043;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background: #b62324;
+    }
+
+    .btn-purple {
+      background: var(--purple);
+      color: #fff;
+    }
+
+    .btn-purple:hover {
+      background: #763cd9;
+    }
+
+    .btn-secondary {
+      background: #21262d;
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: #30363d;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    /* Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #30363d;
+      transition: .2s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: var(--accent);
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Swatches */
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #21262d;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .swatch:hover {
+      transform: scale(1.15);
+      border-color: #fff;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1f2937;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 999px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      border: 1px solid #374151;
+      font-size: 0.88rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>🕒 ESP32 Matrix Clock Simulator</h1>
+      <p>Interactive 48×16 WS2812B Hardware Simulator • Clock, Weather Icons & Alarms</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <a href="weather_icon_editor.html" target="_blank" class="btn-cyan"
+        style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+        🎨 16×16 Icon Studio ↗
+      </a>
+      <div id="connBadge" class="badge">
+        <span class="badge-dot"></span>
+        <span id="connText">Simulator Mode (Offline)</span>
+      </div>
+      <button id="btnConnect" class="btn-secondary" onclick="toggleBluetooth()">Connect Real ESP32</button>
+    </div>
+  </header>
+
+  <!-- 1. PHYSICAL 48x16 MATRIX CHASSIS -->
+  <div class="matrix-chassis">
+    <div class="matrix-screws screw-tl"></div>
+    <div class="matrix-screws screw-tr"></div>
+    <div class="matrix-screws screw-bl"></div>
+    <div class="matrix-screws screw-br"></div>
+
+    <div class="canvas-wrapper">
+      <canvas id="matrixCanvas" width="960" height="320"></canvas>
+    </div>
+
+    <div class="matrix-status-bar">
+      <div class="status-item">
+        <span>Active Display:</span>
+        <span class="status-val" id="dispModeLabel">Clock (25 FPS)</span>
+      </div>
+      <div class="status-item">
+        <span>Time:</span>
+        <span class="status-val" id="timeLiveLabel">--:--:--</span>
+      </div>
+      <div class="status-item">
+        <span>Sun Status:</span>
+        <span class="status-val" id="solarStatusLabel">🌅 Dawn: 07:22 | 🌇 Dusk: 17:31 (☀️ Day)</span>
+      </div>
+      <div class="status-item">
+        <span>Audio Buzzer:</span>
+        <span class="status-val" id="audioStatusLabel">🔊 Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. QUICK ACTIONS BAR -->
+  <div class="card" style="margin-bottom:20px; border-color:rgba(56, 139, 253, 0.4);">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="font-weight:700; font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+        <span>⚡ Quick Test Triggers:</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-primary" onclick="triggerWeatherScreen(8000)">
+          📺 Show Weather Screen (8s)
+        </button>
+        <button class="btn-secondary" onclick="toggleClockWeatherMode()">
+          🔄 Toggle Weather/Clock
+        </button>
+        <button class="btn-danger" onclick="triggerAlarmTest(1)">
+          🔔 Test Alarm 1
+        </button>
+        <button class="btn-danger" onclick="stopActiveAlarm()">
+          ⏹ Silence Alarm
+        </button>
+        <button class="btn-purple" onclick="playRandomShowcase()">
+          ✨ Random Showcase (5s)
+        </button>
+        <a href="weather_icon_editor.html" target="_blank" class="btn-cyan"
+          style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+          🎨 16×16 Icon Studio ↗
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. MAIN CONTROLS GRID -->
+  <div class="controls-grid">
+
+    <!-- CARD A: WEATHER & DYNAMIC DAWN/DUSK -->
+    <div class="card" style="border-top:3px solid #388bfd;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🌦️ Weather & Dawn/Dusk</div>
+          <div class="card-subtitle">16×16 Pixel-Art Icons + Dynamic Day/Night</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-direction: row;flex-wrap: wrap-reverse;justify-content: center;">
+          <label class="badge"
+            style="background:#131d2e; color:#58a6ff; border-color:rgba(88,166,255,0.4); text-decoration:none; cursor:pointer;">📂
+            Load weather_icons.h<input type="file" accept=".h,.cpp,.txt" style="display:none;"
+              onchange="importWeatherHeaderToSimulator(event)"></label>
+          <a href="weather_icon_editor.html" target="_blank" class="badge"
+            style="background:#131d2e; color:#39c5cf; border-color:rgba(57,197,207,0.4); text-decoration:none; cursor:pointer;">
+            🎨 Open 16×16 Icon Editor ↗
+          </a>
+          <span class="badge" style="background:#131d2e; color:#58a6ff;">16 Icons</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Weather Condition (WMO)</div>
+        <select id="weatherSelect" onchange="onWeatherChange()">
+          <option value="Custom" data-icon="CUSTOM">🎨 Custom Studio Icon (Local)</option>
+          <option value="Sunny" data-icon="ICON_SUN">☀️ Sunny / Clear Day</option>
+          <option value="Clear" data-icon="ICON_SUN">✨ Clear Sky</option>
+          <option value="Mainly Clear" data-icon="ICON_PARTLY_CLOUDY_DAY">🌤️ Mainly Clear</option>
+          <option value="Partly Cloudy" data-icon="ICON_PARTLY_CLOUDY_DAY" selected>⛅ Partly Cloudy</option>
+          <option value="Cloudy" data-icon="ICON_CLOUDY">☁️ Cloudy</option>
+          <option value="Overcast" data-icon="ICON_CLOUDY">☁️ Overcast</option>
+          <option value="Foggy" data-icon="ICON_FOG">🌫️ Fog / Mist</option>
+          <option value="Drizzle" data-icon="ICON_RAIN_SUN">🌦️ Light Drizzle</option>
+          <option value="Light Rain" data-icon="ICON_RAIN_SUN">🌦️ Light Rain (Sun/Rain)</option>
+          <option value="Rain" data-icon="ICON_RAIN">🌧️ Moderate Rain</option>
+          <option value="Heavy Rain" data-icon="ICON_RAIN">🌧️ Heavy Rain</option>
+          <option value="Showers" data-icon="ICON_RAIN_SUN">🌦️ Showers</option>
+          <option value="Thunderstorm" data-icon="ICON_THUNDER_DAY">🌩️ Thunderstorm</option>
+          <option value="Storm" data-icon="ICON_THUNDER_DAY">⛈️ Severe Storm</option>
+          <option value="Snow" data-icon="ICON_SNOW">❄️ Snow / Flurries</option>
+          <option value="Heavy Snow" data-icon="ICON_SNOW">☃️ Heavy Snow</option>
+        </select>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">
+            <span>Temperature</span>
+            <span class="val" id="tempValLabel">21°C</span>
+          </div>
+          <input type="range" id="tempSlider" min="-30" max="45" value="21" oninput="onTempInput(this.value)">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label">Day / Night Mode</div>
+          <select id="dayNightModeSelect" onchange="onDayNightModeChange()">
+            <option value="auto" selected>Auto (Dawn/Dusk Calc)</option>
+            <option value="force_day">Force Day ☀️</option>
+            <option value="force_night">Force Night 🌙</option>
+          </select>
+        </div>
+      </div>
+
+      <div
+        style="background:#0d1117; padding:10px 12px; border-radius:8px; border:1px solid #30363d; margin-bottom:12px; font-size:0.83rem;">
+        <div style="font-weight:600; color:#58a6ff; margin-bottom:2px;" id="simSolarHeader">🌅 Calculated Solar Times:
+        </div>
+        <div id="simSolarDetail" style="color:var(--text-muted); font-family:var(--font-mono); font-size:0.78rem;">
+          Sunrise: 07:22 | Sunset: 17:31</div>
+        <div style="margin-top:4px; font-size:0.75rem; color:#8b949e;">At 07:00 in winter, the clock accurately switches
+          to night icon!</div>
+      </div>
+
+      <div class="grid-2">
+        <button class="btn-primary" onclick="triggerWeatherScreen(8000)">
+          📺 Display on Matrix (8s)
+        </button>
+        <button class="btn-secondary" onclick="fetchLiveGpsWeather()">
+          📍 Fetch GPS Weather
+        </button>
+      </div>
+
+      <!-- 2-Hour Inactivity Timeout Monitor & Controls -->
+      <div
+        style="background:#161b22; padding:8px 12px; border-radius:8px; border:1px solid #30363d; margin-top:12px; font-size:0.8rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:600; color:#58a6ff;">⏳ 2h Inactivity Monitor</span>
+          <span id="weatherFreshnessBadge" class="badge"
+            style="background:#238636; color:#fff; border:none;">Active</span>
+        </div>
+        <div id="weatherFreshnessStatus"
+          style="color:var(--text-muted); font-size:0.75rem; font-family:var(--font-mono);">
+          Expires in 02:00:00 without updates
+        </div>
+        <div class="grid-2" style="margin-top:8px;">
+          <button class="btn-secondary" style="font-size:0.75rem; padding:6px 8px; border-color:#da3633; color:#f85149;"
+            onclick="simulateWeatherTimeout()">
+            ⚠️ Simulate 2h Timeout
+          </button>
+          <button class="btn-secondary" style="font-size:0.75rem; padding:6px 8px; border-color:#238636; color:#3fb950;"
+            onclick="refreshWeatherData()">
+            🔄 Send New Weather
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD B: TIME & CLOCK SETTINGS -->
+    <div class="card" style="border-top:3px solid #238636;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🕒 Time & Clock Engine</div>
+          <div class="card-subtitle">5×7 Digits scaled 2x + Pulsing Colon</div>
+        </div>
+        <span class="badge" style="background:#13231b; color:#3fb950;">RTC Sync</span>
+      </div>
+
+      <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:600; font-size:0.88rem;">Follow System Time</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Syncs live with your computer clock</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="followTimeSwitch" checked onchange="toggleFollowTime(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Matrix Digital Rain Background for Clock -->
+      <div class="form-group"
+        style="background:#0d1117; padding:10px 12px; border-radius:8px; border:1px solid #1f6feb; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700; font-size:0.88rem; color:#58a6ff;">🌧️ Matrix Rain Background</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Digital code rain falls continuously behind the
+              time digits</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="matrixRainBgSwitch" checked onchange="toggleMatrixRainBg(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <div class="form-label" style="font-size:0.78rem;">
+              <span>Rain Brightness</span>
+              <span class="val" id="rainBgBrightLabel">45%</span>
+            </div>
+            <input type="range" id="rainBgBrightSlider" min="15" max="90" value="45"
+              oninput="onRainBgBrightInput(this.value)">
+          </div>
+
+          <div>
+            <div class="form-label" style="font-size:0.78rem;">Rain Palette</div>
+            <select id="rainPaletteSelect" onchange="onRainPaletteChange(this.value)"
+              style="padding:6px 10px; font-size:0.82rem;">
+              <option value="matrix" selected>🟢 Classic Matrix Green</option>
+              <option value="cyber">💎 Cyber Cyan / Blue</option>
+              <option value="gold">🟡 Neon Gold</option>
+              <option value="rainbow">🌈 Color Spectrum</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time Scrubber -->
+      <div class="form-group">
+        <div class="form-label">
+          <span>Manual Time Scrubber (Test Any Hour)</span>
+          <span class="val" id="scrubberTimeVal">12:00:00</span>
+        </div>
+        <input type="range" id="timeScrubber" min="0" max="86399" value="43200" oninput="onTimeScrub(this.value)">
+      </div>
+
+      <div class="grid-3" style="margin-bottom:12px;">
+        <button class="btn-secondary" onclick="setTimePreset(7, 0, 'Winter 7:00 AM (Dark outside)')">
+          ❄️ 07:00 AM
+        </button>
+        <button class="btn-secondary" onclick="setTimePreset(12, 30, 'Noon (Daylight)')">
+          ☀️ 12:30 PM
+        </button>
+        <button class="btn-secondary" onclick="setTimePreset(21, 15, 'Night')">
+          🌙 09:15 PM
+        </button>
+      </div>
+
+      <div class="form-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+        <div>
+          <div style="font-weight:600; font-size:0.88rem;">Pulsing Colon Each Second</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Middle colon blink at x=23..24</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="colonBlinkSwitch" checked onchange="toggleColonBlink(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- CARD C: ALARM SIMULATION & BUZZER -->
+    <div class="card" style="border-top:3px solid #da3633;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🔔 Alarms & Sound Synthesizer</div>
+          <div class="card-subtitle">Custom duration, cadence & piezo beeper</div>
+        </div>
+        <button class="btn-danger" style="padding:4px 10px; font-size:0.78rem;"
+          onclick="stopActiveAlarm()">Stop</button>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:10px;">
+        <button class="btn-secondary" onclick="triggerAlarmTest(1)">🔔 Alarm 1 (Break)</button>
+        <button class="btn-secondary" onclick="triggerAlarmTest(2)">🔔 Alarm 2 (Lunch)</button>
+      </div>
+      <div class="grid-2" style="margin-bottom:12px;">
+        <button class="btn-secondary" onclick="triggerAlarmTest(3)">☕ Alarm 3 (Coffee)</button>
+        <button class="btn-secondary" onclick="triggerAlarmTest(4)">🏁 Alarm 4 (Finish)</button>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Alarm Banner Text (Matched to Clock Color)</div>
+        <input type="text" id="alarmCustomText" value="Work Pause..." maxlength="30">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">
+            <span>Beep Cadence</span>
+            <span class="val" id="beepsLabel">2 beeps</span>
+          </div>
+          <input type="range" id="beepsRange" min="1" max="6" value="2"
+            oninput="document.getElementById('beepsLabel').textContent = this.value + ' beeps'">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label">
+            <span>Pause Between</span>
+            <span class="val" id="pauseLabel">1.0s</span>
+          </div>
+          <input type="range" id="pauseRange" min="300" max="3000" step="100" value="1000"
+            oninput="document.getElementById('pauseLabel').textContent = (this.value/1000).toFixed(1) + 's'">
+        </div>
+      </div>
+
+      <div class="form-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+        <div>
+          <div style="font-weight:600; font-size:0.88rem;">Web Audio Piezo Sound</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">2.7 kHz resonant active buzzer synth</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="buzzerSoundSwitch" checked onchange="toggleBuzzerSound(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- CARD D: DISPLAY STYLING & 5-SECOND SHOWCASES -->
+    <div class="card" style="border-top:3px solid #8957e5;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">✨ Matrix Styling & Showcases</div>
+          <div class="card-subtitle">RGB palette, brightness & 5s demo animations</div>
+        </div>
+        <span class="badge" style="background:#281c48; color:#d2a8ff;">3 Animations</span>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">
+          <span>Clock & Text Color</span>
+          <span class="val" id="colorValLabel">#006EFF</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="color" id="colorPicker" value="#006EFF"
+            style="width:48px; height:34px; border:0; padding:2px; border-radius:6px; cursor:pointer;"
+            oninput="onColorPick(this.value)">
+          <div class="color-swatches">
+            <div class="swatch" style="background:#006EFF;" onclick="onColorPick('#006EFF')"></div>
+            <div class="swatch" style="background:#00FFCC;" onclick="onColorPick('#00FFCC')"></div>
+            <div class="swatch" style="background:#00FF66;" onclick="onColorPick('#00FF66')"></div>
+            <div class="swatch" style="background:#FFAA00;" onclick="onColorPick('#FFAA00')"></div>
+            <div class="swatch" style="background:#FF3366;" onclick="onColorPick('#FF3366')"></div>
+            <div class="swatch" style="background:#AA00FF;" onclick="onColorPick('#AA00FF')"></div>
+            <div class="swatch" style="background:#FFFFFF;" onclick="onColorPick('#FFFFFF')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">
+          <span>Brightness / Glow</span>
+          <span class="val" id="brightValLabel">70%</span>
+        </div>
+        <input type="range" id="brightRange" min="20" max="100" value="70" oninput="onBrightnessInput(this.value)">
+      </div>
+
+      <div class="form-label">5-Second Matrix Possibility Showcases:</div>
+      <div class="grid-2" style="margin-bottom:8px;">
+        <button class="btn-secondary" style="border-color:#388bfd;" onclick="startShowcase(0)">
+          🌌 Aurora Plasma
+        </button>
+        <button class="btn-secondary" style="border-color:#2ea043;" onclick="startShowcase(1)">
+          ⚡ Cyber Matrix Rain
+        </button>
+      </div>
+      <div class="grid-2">
+        <button class="btn-secondary" style="border-color:#d29922;" onclick="startShowcase(2)">
+          🌟 Supernova Wave
+        </button>
+        <button class="btn-purple" onclick="playRandomShowcase()">
+          🎲 Random (5s)
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast">Settings updated</div>
+
+  <script>
+    // Embedded 16x16 Weather Icons & 5x7 Font from C++ Firmware
+    const WEATHER_ICONS = { "ICON_SUN": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFB703", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFB703", "0x000000", "0xFF9E00", "0xFFB703", "0xFFB703", "0xFFB703", "0xFFB703", "0xFF9E00", "0x000000", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFE066", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFFFFF", "0xFFFFFF", "0xFFE066", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFE066", "0xFFE066", "0xFFB703", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0x000000", "0xFFB703", "0xFFE066", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFE066", "0xFFB703", "0x000000", "0xFFB703", "0xFF9E00", "0xFF9E00", "0xFFB703", "0x000000", "0xFFB703", "0xFFE066", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFE066", "0xFFB703", "0x000000", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFE066", "0xFFE066", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFFFFF", "0xFFFFFF", "0xFFE066", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFE066", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFB703", "0x000000", "0xFF9E00", "0xFFB703", "0xFFB703", "0xFFB703", "0xFFB703", "0xFF9E00", "0x000000", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFB703", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_MOON": ["0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XCED4DA", "0XE0E1DD", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XCED4DA", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XF8F9FA", "0XCED4DA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0XCED4DA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XF8F9FA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XF8F9FA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0XCED4DA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XF8F9FA", "0XCED4DA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XCED4DA", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XCED4DA", "0XE0E1DD", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000"], "ICON_CLOUDY": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xCED4DA", "0x000000", "0x000000", "0x000000", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_CLOUDY_NIGHT": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_PARTLY_CLOUDY_DAY": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xDEE2E6", "0xFFB703", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0xFF9E00", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xCED4DA", "0x000000", "0x000000", "0x000000", "0x000000", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_PARTLY_CLOUDY_NIGHT": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x8D99AE", "0xF8F9FA", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xF8F9FA", "0xFFFFFF", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFFFFF", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x415A77", "0xFFFFFF", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0xF8F9FA", "0xFFFFFF", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_RAIN": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xCED4DA", "0x000000", "0x000000", "0x000000", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x006494", "0x000000", "0x006494", "0x00A6FB", "0x006494", "0x000000", "0x006494", "0x00A6FB", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_RAIN_NIGHT": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x006494", "0x000000", "0x006494", "0x00A6FB", "0x006494", "0x000000", "0x006494", "0x00A6FB", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_RAIN_SUN": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFF9E00", "0xFFB703", "0xFFE066", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xDEE2E6", "0xFFB703", "0xFFE066", "0xFFB703", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0xFF9E00", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xCED4DA", "0x000000", "0x000000", "0x000000", "0x000000", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_RAIN_MOON": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x8D99AE", "0xF8F9FA", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xF8F9FA", "0xFFFFFF", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFFFFF", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x415A77", "0xFFFFFF", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0xF8F9FA", "0xFFFFFF", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x00A6FB", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x006494", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_THUNDER_DAY": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x495057", "0x000000", "0x000000", "0x000000", "0x495057", "0x495057", "0x495057", "0x495057", "0x495057", "0xFFEA00", "0xFFEA00", "0x495057", "0x495057", "0x495057", "0x495057", "0x495057", "0x343A40", "0x000000", "0x000000", "0x000000", "0x000000", "0x343A40", "0x343A40", "0x343A40", "0xFFEA00", "0xFFEA00", "0x343A40", "0x343A40", "0x343A40", "0x343A40", "0x343A40", "0x343A40", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0xFFEA00", "0xFFEA00", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_THUNDER_NIGHT": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x3D4A5A", "0x566B82", "0x3D4A5A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x3D4A5A", "0x566B82", "0x566B82", "0x566B82", "0x3D4A5A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x3D4A5A", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x3D4A5A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x3D4A5A", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x3D4A5A", "0x3D4A5A", "0x000000", "0x000000", "0x000000", "0x000000", "0x3D4A5A", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x3D4A5A", "0x000000", "0x000000", "0x000000", "0x3D4A5A", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x566B82", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0xFFEA00", "0xFFEA00", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0xFFEA00", "0xFFEA00", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0xFFEA00", "0xFFEA00", "0xFF9E00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xFFEA00", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_SNOW": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xDEE2E6", "0x000000", "0x000000", "0x000000", "0xDEE2E6", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xCED4DA", "0x000000", "0x000000", "0x000000", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_SNOW_NIGHT": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x000000", "0x000000", "0x000000", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x1B263B", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x0D1B2A", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x74C0FC", "0xE0FAFF", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x74C0FC", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_FOG": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xADB5BD", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xADB5BD", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xADB5BD", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xADB5BD", "0x6C757D", "0x000000", "0x000000", "0xADB5BD", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xADB5BD", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xADB5BD", "0x6C757D", "0x000000", "0x000000", "0x000000", "0xADB5BD", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xADB5BD", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x6C757D", "0xADB5BD", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xCED4DA", "0xADB5BD", "0x6C757D", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0xADB5BD", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xFFFFFF", "0xADB5BD", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"], "ICON_FOG_NIGHT": ["0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x1B263B", "0x000000", "0x000000", "0x415A77", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x415A77", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x1B263B", "0x415A77", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x778DA9", "0x415A77", "0x1B263B", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x415A77", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x8D99AE", "0x415A77", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000", "0x000000"] };
+    const FONT5x7 = { "32": [0, 0, 0, 0, 0, 0, 0], "33": [4, 4, 4, 4, 4, 0, 4], "34": [10, 10, 10, 0, 0, 0, 0], "35": [10, 10, 31, 10, 31, 10, 10], "36": [4, 15, 20, 14, 5, 30, 4], "37": [25, 25, 2, 4, 8, 19, 19], "38": [12, 18, 20, 8, 21, 18, 13], "39": [4, 4, 8, 0, 0, 0, 0], "40": [2, 4, 8, 8, 8, 4, 2], "41": [8, 4, 2, 2, 2, 4, 8], "42": [0, 4, 21, 14, 21, 4, 0], "43": [0, 4, 4, 31, 4, 4, 0], "44": [0, 0, 0, 0, 4, 4, 8], "45": [0, 0, 0, 31, 0, 0, 0], "46": [0, 0, 0, 0, 0, 12, 12], "47": [1, 2, 4, 8, 16, 0, 0], "48": [14, 17, 19, 21, 25, 17, 14], "49": [4, 12, 4, 4, 4, 4, 14], "50": [14, 17, 1, 2, 4, 8, 31], "51": [31, 1, 1, 14, 1, 1, 30], "52": [2, 6, 10, 18, 31, 2, 2], "53": [31, 16, 16, 30, 1, 1, 30], "54": [6, 8, 16, 30, 17, 17, 14], "55": [31, 1, 2, 4, 8, 8, 8], "56": [14, 17, 17, 14, 17, 17, 14], "57": [14, 17, 17, 15, 1, 2, 28], "58": [0, 12, 12, 0, 12, 12, 0], "59": [0, 12, 12, 0, 12, 4, 8], "60": [2, 4, 8, 16, 8, 4, 2], "61": [0, 31, 0, 31, 0, 0, 0], "62": [8, 4, 2, 1, 2, 4, 8], "63": [14, 17, 1, 2, 4, 0, 4], "64": [14, 17, 1, 13, 21, 19, 14], "65": [14, 17, 17, 31, 17, 17, 17], "66": [30, 17, 17, 30, 17, 17, 30], "67": [14, 17, 16, 16, 16, 17, 14], "68": [28, 18, 17, 17, 17, 18, 28], "69": [31, 16, 16, 30, 16, 16, 31], "70": [31, 16, 16, 30, 16, 16, 16], "71": [14, 17, 16, 23, 17, 17, 15], "72": [17, 17, 17, 31, 17, 17, 17], "73": [14, 4, 4, 4, 4, 4, 14], "74": [7, 2, 2, 2, 2, 18, 12], "75": [17, 18, 20, 24, 20, 18, 17], "76": [16, 16, 16, 16, 16, 16, 31], "77": [17, 27, 21, 21, 17, 17, 17], "78": [17, 17, 25, 21, 19, 17, 17], "79": [14, 17, 17, 17, 17, 17, 14], "80": [30, 17, 17, 30, 16, 16, 16], "81": [14, 17, 17, 17, 21, 18, 13], "82": [30, 17, 17, 30, 20, 18, 17], "83": [14, 17, 16, 14, 1, 17, 14], "84": [31, 4, 4, 4, 4, 4, 4], "85": [17, 17, 17, 17, 17, 17, 14], "86": [17, 17, 17, 17, 17, 10, 4], "87": [17, 17, 17, 21, 21, 27, 17], "88": [17, 17, 10, 4, 10, 17, 17], "89": [17, 17, 10, 4, 4, 4, 4], "90": [31, 1, 2, 4, 8, 16, 31], "91": [14, 8, 8, 8, 8, 8, 14], "92": [16, 8, 4, 2, 1, 0, 0], "93": [14, 2, 2, 2, 2, 2, 14], "94": [4, 10, 17, 0, 0, 0, 0], "95": [0, 0, 0, 0, 0, 0, 31], "96": [8, 4, 0, 0, 0, 0, 0], "97": [0, 0, 14, 1, 15, 17, 15], "98": [16, 16, 22, 25, 17, 17, 30], "99": [0, 0, 14, 16, 16, 17, 14], "100": [1, 1, 13, 19, 17, 17, 15], "101": [0, 0, 14, 17, 31, 16, 14], "102": [6, 9, 8, 28, 8, 8, 8], "103": [0, 14, 17, 17, 15, 1, 14], "104": [16, 16, 22, 25, 17, 17, 17], "105": [4, 0, 12, 4, 4, 4, 14], "106": [2, 0, 6, 2, 2, 18, 12], "107": [16, 16, 18, 20, 24, 20, 19], "108": [12, 4, 4, 4, 4, 4, 14], "109": [0, 0, 26, 21, 21, 17, 17], "110": [0, 0, 22, 25, 17, 17, 17], "111": [0, 0, 14, 17, 17, 17, 14], "112": [0, 0, 30, 17, 30, 16, 16], "113": [0, 0, 13, 19, 15, 1, 1], "114": [0, 0, 22, 25, 16, 16, 16], "115": [0, 0, 14, 16, 14, 1, 30], "116": [8, 8, 28, 8, 8, 9, 6], "117": [0, 0, 17, 17, 17, 19, 13], "118": [0, 0, 17, 17, 17, 10, 4], "119": [0, 0, 17, 17, 21, 21, 10], "120": [0, 0, 17, 10, 4, 10, 17], "121": [0, 0, 17, 17, 15, 1, 14], "122": [0, 0, 31, 2, 4, 8, 31], "123": [2, 4, 4, 8, 4, 4, 2], "124": [4, 4, 4, 0, 4, 4, 4], "125": [8, 4, 4, 2, 4, 4, 8] };
+
+    // 5x7 DIGITS for Clock (2x scaled = 10x14)
+    const DIGITS = [
+      [0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110], // 0
+      [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110], // 1
+      [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111], // 2
+      [0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110], // 3
+      [0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010], // 4
+      [0b11111, 0b10000, 0b10000, 0b11110, 0b00001, 0b00001, 0b11110], // 5
+      [0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110], // 6
+      [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000], // 7
+      [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110], // 8
+      [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b11100]  // 9
+    ];
+
+    // Hardware Dimensions
+    const MATRIX_WIDTH = 48;
+    const MATRIX_HEIGHT = 16;
+
+    // Canvas setup
+    const canvas = document.getElementById("matrixCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Virtual VRAM Buffer [48][16] storing RGB values {r, g, b}
+    const vram = [];
+    for (let x = 0; x < MATRIX_WIDTH; x++) {
+      vram[x] = [];
+      for (let y = 0; y < MATRIX_HEIGHT; y++) {
+        vram[x][y] = { r: 0, g: 0, b: 0 };
+      }
+    }
+
+    function clearVram() {
+      for (let x = 0; x < MATRIX_WIDTH; x++) {
+        for (let y = 0; y < MATRIX_HEIGHT; y++) {
+          vram[x][y].r = 0;
+          vram[x][y].g = 0;
+          vram[x][y].b = 0;
+        }
+      }
+    }
+
+    function setPixel(x, y, r, g, b) {
+      if (x < 0 || x >= MATRIX_WIDTH || y < 0 || y >= MATRIX_HEIGHT) return;
+      vram[x][y].r = r;
+      vram[x][y].g = g;
+      vram[x][y].b = b;
+    }
+
+    // Simulator State
+    let clockColor = { r: 0, g: 110, b: 255 };
+    let brightness = 0.7;
+    let blinkColon = true;
+    let followRealTime = true;
+    let manualTimeSec = 12 * 3600; // 12:00:00
+
+    const WEATHER_EXPIRATION_MS = 2 * 60 * 60 * 1000; // 2 hours (7,200,000 ms)
+
+    let weatherData = {
+      valid: true,
+      temp: 21,
+      desc: "Partly Cloudy",
+      conditionKey: "Partly Cloudy",
+      lastUpdateMs: Date.now()
+    };
+
+    let dayNightMode = "auto"; // "auto", "force_day", "force_night"
+    let calculatedDawn = { h: 7, m: 22 };
+    let calculatedDusk = { h: 17, m: 31 };
+
+    // Modes: "clock", "weather", "alarm", "showcase"
+    let currentMode = "clock";
+    let modeTimeout = null;
+
+    // Alarm State
+    let activeAlarm = null; // { text, durSec, beeps, pauseMs, startTime }
+    let alarmBuzzerEnabled = true;
+
+    // Showcase State
+    let activeShowcase = null; // { id, startMs, durMs }
+
+    // Audio Context for Piezo Buzzer Simulation
+    let audioCtx = null;
+    let buzzerOsc = null;
+    let buzzerGain = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function playBuzzerBeep(durationMs) {
+      if (!alarmBuzzerEnabled) return;
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(2700, audioCtx.currentTime); // 2.7 kHz resonant piezo buzzer tone
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durationMs / 1000);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + durationMs / 1000);
+      } catch (e) {
+        console.log("Audio play error", e);
+      }
+    }
+
+    // Dynamic Astronomical Solar Dawn & Dusk Calculator (exact match to firmware C++ math)
+    function calculateSolarDawnDusk(date) {
+      const start = new Date(date.getFullYear(), 0, 0);
+      const diff = date - start;
+      const oneDay = 1000 * 60 * 60 * 24;
+      const doy = Math.floor(diff / oneDay);
+
+      const rad = Math.PI / 180.0;
+      const delta = -23.44 * Math.cos((2.0 * Math.PI * (doy + 10)) / 365.25) * rad;
+      const phi = 52.0 * rad; // ~52°N Central Europe
+
+      let cosH0 = (Math.sin(-0.833 * rad) - Math.sin(phi) * Math.sin(delta)) / (Math.cos(phi) * Math.cos(delta));
+      cosH0 = Math.max(-1.0, Math.min(1.0, cosH0));
+      const H0_deg = Math.acos(cosH0) * (180.0 / Math.PI);
+
+      const halfDayMin = (H0_deg / 15.0) * 60.0;
+
+      // EU Daylight saving time check
+      const m = date.getMonth() + 1;
+      const d = date.getDate();
+      const dow = date.getDay();
+      let dst = false;
+      if (m > 3 && m < 10) dst = true;
+      else if (m === 3) dst = (d - dow >= 25);
+      else if (m === 10) dst = (d - dow < 25);
+
+      const noonMin = dst ? 765 : 705;
+      const sunriseTotalMin = Math.round(noonMin - halfDayMin);
+      const sunsetTotalMin = Math.round(noonMin + halfDayMin);
+
+      const riseH = Math.max(0, Math.min(23, Math.floor(sunriseTotalMin / 60)));
+      const riseM = Math.max(0, Math.min(59, sunriseTotalMin % 60));
+      const setH = Math.max(0, Math.min(23, Math.floor(sunsetTotalMin / 60)));
+      const setM = Math.max(0, Math.min(59, sunsetTotalMin % 60));
+
+      return { riseH, riseM, setH, setM };
+    }
+
+    function isDaytime(timeObj) {
+      if (dayNightMode === "force_day") return true;
+      if (dayNightMode === "force_night") return false;
+
+      const currentMin = timeObj.h * 60 + timeObj.m;
+      const riseMin = calculatedDawn.h * 60 + calculatedDawn.m;
+      const setMin = calculatedDusk.h * 60 + calculatedDusk.m;
+
+      return (currentMin >= riseMin && currentMin < setMin);
+    }
+
+    // Load saved custom pack on startup
+    try {
+      const savedPack = localStorage.getItem('imported_weather_icons_pack');
+      if (savedPack) {
+        const parsed = JSON.parse(savedPack);
+        Object.assign(WEATHER_ICONS, parsed);
+      }
+    } catch (e) { }
+
+    function importWeatherHeaderToSimulator(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const regex = /const\s+uint32_t\s+([A-Za-z0-9_]+)\[256\]\s+PROGMEM\s*=\s*\{([^}]+)\};/g;
+        let match;
+        let count = 0;
+        while ((match = regex.exec(text)) !== null) {
+          const name = match[1];
+          const body = match[2];
+          const hexes = body.match(/0x[0-9A-Fa-f]{6}/g);
+          if (hexes && hexes.length === 256) {
+            WEATHER_ICONS[name] = hexes.map(h => h.toUpperCase());
+            count++;
+          }
+        }
+        if (count > 0) {
+          localStorage.setItem('imported_weather_icons_pack', JSON.stringify(WEATHER_ICONS));
+          showToast('✅ Loaded ' + count + ' icons from ' + file.name + '!');
+          renderWeatherScreen({ h: 12, m: 0, s: 0 });
+        } else {
+          showToast('⚠️ No 16x16 icon arrays found in ' + file.name);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Weather Icon Mapper matching firmware
+    function getWeatherIcon(desc, isDay) {
+      const d = (desc || "").toLowerCase();
+      if (d.includes("custom")) {
+        try {
+          const stored = localStorage.getItem("custom_weather_icon");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.pixels && parsed.pixels.length === 256) {
+              return parsed.pixels;
+            }
+          }
+        } catch (e) { }
+      }
+      if (d.includes("sun") || d.includes("clear")) {
+        return isDay ? WEATHER_ICONS.ICON_SUN : WEATHER_ICONS.ICON_MOON;
+      }
+      if (d.includes("partly") || d.includes("mainly")) {
+        return isDay ? WEATHER_ICONS.ICON_PARTLY_CLOUDY_DAY : WEATHER_ICONS.ICON_PARTLY_CLOUDY_NIGHT;
+      }
+      if (d.includes("overcast") || d.includes("cloud")) {
+        return isDay ? WEATHER_ICONS.ICON_CLOUDY : WEATHER_ICONS.ICON_CLOUDY_NIGHT;
+      }
+      if (d.includes("fog") || d.includes("mist")) {
+        return isDay ? WEATHER_ICONS.ICON_FOG : WEATHER_ICONS.ICON_FOG_NIGHT;
+      }
+      if (d.includes("thunder") || d.includes("storm")) {
+        return isDay ? WEATHER_ICONS.ICON_THUNDER_DAY : WEATHER_ICONS.ICON_THUNDER_NIGHT;
+      }
+      if (d.includes("snow") || d.includes("sleet")) {
+        return isDay ? WEATHER_ICONS.ICON_SNOW : WEATHER_ICONS.ICON_SNOW_NIGHT;
+      }
+      if (d.includes("drizzle") || d.includes("shower") || d.includes("light rain")) {
+        return isDay ? WEATHER_ICONS.ICON_RAIN_SUN : WEATHER_ICONS.ICON_RAIN_MOON;
+      }
+      if (d.includes("rain")) {
+        return isDay ? WEATHER_ICONS.ICON_RAIN : WEATHER_ICONS.ICON_RAIN_NIGHT;
+      }
+      return isDay ? WEATHER_ICONS.ICON_SUN : WEATHER_ICONS.ICON_MOON;
+    }
+
+    // Drawing Helpers
+    function drawIcon16x16(startX, startY, iconArray) {
+      if (!iconArray) return;
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const raw = iconArray[y * 16 + x];
+          const val = typeof raw === "string" ? parseInt(raw, 16) : raw;
+          if (val > 0) {
+            const r = (val >> 16) & 0xFF;
+            const g = (val >> 8) & 0xFF;
+            const b = val & 0xFF;
+            setPixel(startX + x, startY + y, r, g, b);
+          }
+        }
+      }
+    }
+
+    function drawDigit(digit, startX, col) {
+      if (digit < 0 || digit > 9) return;
+      const glyph = DIGITS[digit];
+      for (let row = 0; row < 7; row++) {
+        const y = 1 + row * 2;
+        const rowBits = glyph[row];
+        for (let colIdx = 0; colIdx < 5; colIdx++) {
+          if (rowBits & (1 << (4 - colIdx))) {
+            const x = startX + colIdx * 2;
+            setPixel(x, y, col.r, col.g, col.b);
+            setPixel(x + 1, y, col.r, col.g, col.b);
+            setPixel(x, y + 1, col.r, col.g, col.b);
+            setPixel(x + 1, y + 1, col.r, col.g, col.b);
+          }
+        }
+      }
+    }
+
+    function drawColon(visible, col) {
+      if (!visible) return;
+      for (let y = 5; y <= 6; y++) {
+        setPixel(23, y, col.r, col.g, col.b);
+        setPixel(24, y, col.r, col.g, col.b);
+      }
+      for (let y = 10; y <= 11; y++) {
+        setPixel(23, y, col.r, col.g, col.b);
+        setPixel(24, y, col.r, col.g, col.b);
+      }
+    }
+
+    function drawChar5x7(c, startX, startY, col, minX = 0, maxX = 47) {
+      if (c === "°" || c === "^") {
+        // 3x3 hollow degree symbol:
+        // . # .
+        // # . #
+        // . # .
+        const degreeRows = [0b010, 0b101, 0b010];
+        for (let row = 0; row < 3; row++) {
+          const rowBits = degreeRows[row];
+          for (let bit = 0; bit < 3; bit++) {
+            if (rowBits & (1 << (2 - bit))) {
+              const px = startX + bit;
+              const py = startY + row;
+              if (px >= minX && px <= maxX) {
+                setPixel(px, py, col.r, col.g, col.b);
+              }
+            }
+          }
+        }
+        return 4; // 3 width + 1 spacing
+      }
+
+      const code = c.charCodeAt(0);
+      const glyph = FONT5x7[code] || FONT5x7[32];
+      if (!glyph) return 6;
+      for (let row = 0; row < 7; row++) {
+        const rowByte = glyph[row];
+        for (let bit = 0; bit < 5; bit++) {
+          if (rowByte & (0x10 >> bit)) {
+            const px = startX + bit;
+            const py = startY + row;
+            if (px >= minX && px <= maxX) {
+              setPixel(px, py, col.r, col.g, col.b);
+            }
+          }
+        }
+      }
+      return 6;
+    }
+
+    function drawTextClipped(text, startX, startY, col, minX = 0, maxX = 47) {
+      let curX = startX;
+      for (let i = 0; i < text.length; i++) {
+        const charW = drawChar5x7(text[i], curX, startY, col, minX, maxX);
+        curX += charW;
+      }
+      return curX - startX;
+    }
+
+    function getTextWidth(text) {
+      if (!text) return 0;
+      let w = 0;
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] === "°" || text[i] === "^") w += 4;
+        else w += 6;
+      }
+      return w;
+    }
+
+    // -------------------------------------------------------------------------
+    // Animation Renderers
+    // -------------------------------------------------------------------------
+
+    // FastLED HSV to RGB helper
+    function hsvToRgb(h, s, v) {
+      h = (h % 256) / 256;
+      s = Math.max(0, Math.min(1, s / 255));
+      v = Math.max(0, Math.min(1, v / 255));
+      let r, g, b;
+      let i = Math.floor(h * 6);
+      let f = h * 6 - i;
+      let p = v * (1 - s);
+      let q = v * (1 - f * s);
+      let t = v * (1 - (1 - f) * s);
+      switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+      }
+      return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    }
+
+    // 1. Plasma Swirl
+    function renderPlasmaFrame(timeMs) {
+      const t = Math.floor(timeMs / 18);
+      for (let y = 0; y < MATRIX_HEIGHT; y++) {
+        for (let x = 0; x < MATRIX_WIDTH; x++) {
+          const w1 = Math.sin((x * 0.28) + (t * 0.08)) * 127 + 128;
+          const w2 = Math.sin((y * 0.7) - (t * 0.12)) * 127 + 128;
+          const w3 = Math.sin(((x + y) * 0.24) + (t * 0.04)) * 127 + 128;
+
+          const cx = x - 24 + Math.sin(t * 0.05) * 8;
+          const cy = y - 8 + Math.cos(t * 0.05) * 6;
+          const dist = Math.sqrt(cx * cx * 4 + cy * cy * 16);
+          const w4 = Math.sin(dist * 0.35 - t * 0.08) * 127 + 128;
+
+          const hue = Math.floor((w1 + w2 + w3 + w4) / 4 + t * 0.5) % 256;
+          const rgb = hsvToRgb(hue, 240, 255);
+          setPixel(x, y, rgb.r, rgb.g, rgb.b);
+        }
+      }
+    }
+
+    // 2. Cyber Matrix Rain
+    const rainDrops = [];
+    for (let x = 0; x < MATRIX_WIDTH; x++) {
+      rainDrops.push({
+        y: -Math.floor(Math.random() * 20),
+        speed: 0.35 + Math.random() * 0.45,
+        len: 5 + Math.floor(Math.random() * 8),
+        hue: Math.random() > 0.5 ? 96 : 135
+      });
+    }
+
+    let matrixRainBackground = true;
+    let rainBgBrightness = 0.45;
+    let rainHuePreset = "matrix";
+
+    function toggleMatrixRainBg(enabled) {
+      matrixRainBackground = enabled;
+      showToast(enabled ? "Matrix Rain background enabled 🌧️" : "Matrix Rain background disabled");
+    }
+
+    function onRainBgBrightInput(val) {
+      rainBgBrightness = parseInt(val, 10) / 100;
+      document.getElementById("rainBgBrightLabel").textContent = `${val}%`;
+    }
+
+    function onRainPaletteChange(val) {
+      rainHuePreset = val;
+      showToast(`Matrix Rain palette: ${val}`);
+    }
+
+    function renderMatrixRainStep(scale = 1.0) {
+      // Decay existing pixels for trail glow
+      for (let x = 0; x < MATRIX_WIDTH; x++) {
+        for (let y = 0; y < MATRIX_HEIGHT; y++) {
+          vram[x][y].r = Math.floor(vram[x][y].r * 0.74);
+          vram[x][y].g = Math.floor(vram[x][y].g * 0.74);
+          vram[x][y].b = Math.floor(vram[x][y].b * 0.74);
+        }
+      }
+
+      for (let x = 0; x < MATRIX_WIDTH; x++) {
+        const d = rainDrops[x];
+        d.y += d.speed;
+        const headY = Math.floor(d.y);
+
+        for (let i = 0; i < d.len; i++) {
+          const trailY = headY - i;
+          if (trailY >= 0 && trailY < MATRIX_HEIGHT) {
+            if (i === 0) {
+              const headR = Math.floor(210 * scale);
+              const headG = Math.floor(255 * scale);
+              const headB = Math.floor(230 * scale);
+              setPixel(x, trailY, headR, headG, headB);
+            } else {
+              const val = Math.floor((255 - (i * 240) / d.len) * scale);
+              let hue = d.hue;
+              if (rainHuePreset === "matrix") hue = 96;
+              else if (rainHuePreset === "cyber") hue = 135;
+              else if (rainHuePreset === "gold") hue = 38;
+              const rgb = hsvToRgb(hue, 250, val);
+              setPixel(x, trailY, rgb.r, rgb.g, rgb.b);
+            }
+          }
+        }
+
+        if (d.y - d.len >= MATRIX_HEIGHT) {
+          d.y = -Math.floor(Math.random() * 10);
+          d.speed = 0.35 + Math.random() * 0.45;
+          d.len = 5 + Math.floor(Math.random() * 8);
+          d.hue = [96, 110, 135][Math.floor(Math.random() * 3)];
+        }
+      }
+
+      if (Math.random() < 0.2) {
+        const rx = Math.floor(Math.random() * MATRIX_WIDTH);
+        const ry = Math.floor(Math.random() * MATRIX_HEIGHT);
+        const gVal = Math.floor(255 * scale);
+        setPixel(rx, ry, gVal, gVal, gVal);
+      }
+    }
+
+    function renderMatrixRainFrame() {
+      renderMatrixRainStep(1.0);
+    }
+
+    // 3. Supernova Ripple Wave
+    function renderSupernovaFrame(timeMs) {
+      clearVram();
+      const t = timeMs * 0.15;
+      for (let y = 0; y < MATRIX_HEIGHT; y++) {
+        for (let x = 0; x < MATRIX_WIDTH; x++) {
+          const dx = x - 23.5;
+          const dy = (y - 7.5) * 2;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          const wave = (Math.sin(dist * 0.55 - t * 0.24) + 1.0) * 0.5;
+          const hue = Math.floor(dist * 7 + t * 0.8) % 256;
+          const rgb = hsvToRgb(hue, 240, Math.floor(wave * 255));
+          setPixel(x, y, rgb.r, rgb.g, rgb.b);
+        }
+      }
+
+      for (let i = 0; i < 4; i++) {
+        if (Math.random() < 0.8) {
+          const sx = Math.floor(Math.random() * MATRIX_WIDTH);
+          const sy = Math.floor(Math.random() * MATRIX_HEIGHT);
+          setPixel(sx, sy, 255, 255, 255);
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Mode Renderers
+    // -------------------------------------------------------------------------
+
+    function renderClockScreen(time) {
+      if (matrixRainBackground) {
+        // 1. Advance falling Matrix Rain in background
+        renderMatrixRainStep(rainBgBrightness);
+      } else {
+        clearVram();
+      }
+
+      const h = time.h;
+      const m = time.m;
+      const s = time.s;
+
+      const hTens = Math.floor(h / 10);
+      const hOnes = h % 10;
+      const mTens = Math.floor(m / 10);
+      const mOnes = m % 10;
+
+      // 2. Draw Hours on top
+      drawDigit(hTens, 1, clockColor);
+      drawDigit(hOnes, 12, clockColor);
+
+      // 3. Draw Colon on top at x=23..24
+      const colonVis = blinkColon ? (s % 2 === 0) : true;
+      drawColon(colonVis, clockColor);
+
+      // 4. Draw Minutes on top
+      drawDigit(mTens, 26, clockColor);
+      drawDigit(mOnes, 37, clockColor);
+    }
+
+    function renderWeatherScreen(time) {
+      clearVram();
+
+      const isDay = isDaytime(time);
+      const icon = getWeatherIcon(weatherData.desc, isDay);
+
+      // 1. Left 16x16 Panel: Weather Icon
+      drawIcon16x16(0, 0, icon);
+
+      // 2. Right 32x16 Section:
+      // Top row (y: 1): Temperature (e.g. "21°C" or "-5°C")
+      const tempStr = `${weatherData.temp}°C`;
+      const tempWidth = getTextWidth(tempStr);
+      const tempX = 16 + Math.floor((32 - tempWidth) / 2);
+      drawTextClipped(tempStr, tempX, 1, clockColor, 16, 47);
+
+      // Bottom row (y: 9): Description text
+      const descStr = weatherData.desc || "Clear";
+      const descWidth = getTextWidth(descStr);
+
+      if (descWidth <= 32) {
+        const descX = 16 + Math.floor((32 - descWidth) / 2);
+        drawTextClipped(descStr, descX, 9, { r: 255, g: 255, b: 255 }, 16, 47);
+      } else {
+        // Smooth marquee scrolling clipped strictly to x: 16..47
+        const scrollSpeed = 65; // ms per pixel
+        const totalRange = descWidth + 14;
+        const offset = Math.floor(Date.now() / scrollSpeed) % totalRange;
+        const descX = 47 - offset;
+        drawTextClipped(descStr, descX, 9, { r: 255, g: 255, b: 255 }, 16, 47);
+      }
+    }
+
+    function renderAlarmScreen(time) {
+      clearVram();
+      const txt = activeAlarm.text || "ALARM!";
+      const txtWidth = getTextWidth(txt);
+
+      // Scrolling banner in clock color across entire 48 columns
+      const totalRange = txtWidth + MATRIX_WIDTH + 6;
+      const offset = Math.floor((Date.now() - activeAlarm.startTime) / 50) % totalRange;
+      const startX = MATRIX_WIDTH - offset;
+
+      drawTextClipped(txt, startX, 4, clockColor, 0, 47);
+
+      // Flashing border indicator during alarm
+      if (Math.floor(Date.now() / 200) % 2 === 0) {
+        for (let x = 0; x < MATRIX_WIDTH; x++) {
+          setPixel(x, 0, 255, 30, 30);
+          setPixel(x, 15, 255, 30, 30);
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Main Render Loop (25 FPS)
+    // -------------------------------------------------------------------------
+    function getCurrentTime() {
+      if (followRealTime) {
+        const now = new Date();
+        return {
+          h: now.getHours(),
+          m: now.getMinutes(),
+          s: now.getSeconds(),
+          ms: now.getMilliseconds(),
+          fullDate: now
+        };
+      } else {
+        const h = Math.floor(manualTimeSec / 3600);
+        const rem = manualTimeSec % 3600;
+        const m = Math.floor(rem / 60);
+        const s = rem % 60;
+        const fakeDate = new Date();
+        fakeDate.setHours(h, m, s);
+        return { h, m, s, ms: 0, fullDate: fakeDate };
+      }
+    }
+
+    let lastBeepCheckMs = 0;
+
+    function renderFrame() {
+      const time = getCurrentTime();
+
+      // Recalculate dawn and dusk
+      calculatedDawn = calculateSolarDawnDusk(time.fullDate);
+      calculatedDusk = { h: calculatedDawn.setH, m: calculatedDawn.setM };
+      calculatedDawn = { h: calculatedDawn.riseH, m: calculatedDawn.riseM };
+
+      const isDay = isDaytime(time);
+      const pad = n => String(n).padStart(2, '0');
+      const timeStr = `${pad(time.h)}:${pad(time.m)}:${pad(time.s)}`;
+      document.getElementById("timeLiveLabel").textContent = timeStr;
+
+      const dawnStr = `${pad(calculatedDawn.h)}:${pad(calculatedDawn.m)}`;
+      const duskStr = `${pad(calculatedDusk.h)}:${pad(calculatedDusk.m)}`;
+      document.getElementById("solarStatusLabel").textContent = `🌅 Dawn: ${dawnStr} | 🌇 Dusk: ${duskStr} (${isDay ? "☀️ Day" : "🌙 Night"})`;
+      document.getElementById("simSolarDetail").textContent = `Sunrise: ${dawnStr} | Sunset: ${duskStr} • Current: ${isDay ? "Daylight (Sun icon)" : "Darkness (Night icon)"}`;
+
+      // Check Active Alarm Cadence & Beep Synthesizer
+      if (activeAlarm) {
+        const elapsedSec = (Date.now() - activeAlarm.startTime) / 1000;
+        if (elapsedSec >= activeAlarm.durSec) {
+          stopActiveAlarm();
+        } else {
+          // Play beeps according to cadence
+          const burstCycleMs = (activeAlarm.beeps * 200) + activeAlarm.pauseMs;
+          const cyclePos = (Date.now() - activeAlarm.startTime) % burstCycleMs;
+          if (Date.now() - lastBeepCheckMs >= 180) {
+            lastBeepCheckMs = Date.now();
+            for (let b = 0; b < activeAlarm.beeps; b++) {
+              const beepStart = b * 200;
+              if (cyclePos >= beepStart && cyclePos < beepStart + 120) {
+                playBuzzerBeep(100);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // Check Active Showcase
+      if (activeShowcase) {
+        const elapsed = Date.now() - activeShowcase.startMs;
+        if (elapsed >= activeShowcase.durMs) {
+          activeShowcase = null;
+          currentMode = "clock";
+          document.getElementById("dispModeLabel").textContent = "Clock (25 FPS)";
+        } else {
+          if (activeShowcase.id === 0) renderPlasmaFrame(Date.now() - activeShowcase.startMs);
+          else if (activeShowcase.id === 1) renderMatrixRainFrame();
+          else if (activeShowcase.id === 2) renderSupernovaFrame(Date.now() - activeShowcase.startMs);
+        }
+      } else if (activeAlarm) {
+        renderAlarmScreen(time);
+      } else if (currentMode === "weather") {
+        // Enforce 2h expiration timeout
+        if (Date.now() - weatherData.lastUpdateMs >= WEATHER_EXPIRATION_MS) {
+          weatherData.valid = false;
+          currentMode = "clock";
+          if (modeTimeout) clearTimeout(modeTimeout);
+          document.getElementById("dispModeLabel").textContent = "Clock (25 FPS)";
+          updateWeatherFreshnessUI();
+          renderClockScreen(time);
+        } else {
+          renderWeatherScreen(time);
+        }
+      } else {
+        renderClockScreen(time);
+      }
+
+      // Keep Freshness UI in sync
+      if (Math.floor(Date.now() / 1000) % 2 === 0) {
+        updateWeatherFreshnessUI();
+      }
+
+      // Draw VRAM to Canvas with LED Physical Diodes & Bloom
+      drawCanvasLEDs();
+    }
+
+    function drawCanvasLEDs() {
+      const cw = canvas.width;
+      const ch = canvas.height;
+      const cellW = cw / MATRIX_WIDTH;   // 20px
+      const cellH = ch / MATRIX_HEIGHT;  // 20px
+      const radius = 7.5;
+
+      ctx.fillStyle = "#030407";
+      ctx.fillRect(0, 0, cw, ch);
+
+      // Grid dividers
+      ctx.strokeStyle = "rgba(18, 24, 38, 0.4)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= MATRIX_WIDTH; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * cellW, 0);
+        ctx.lineTo(x * cellW, ch);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= MATRIX_HEIGHT; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * cellH);
+        ctx.lineTo(cw, y * cellH);
+        ctx.stroke();
+      }
+
+      // Render individual LED lenses
+      for (let x = 0; x < MATRIX_WIDTH; x++) {
+        for (let y = 0; y < MATRIX_HEIGHT; y++) {
+          const p = vram[x][y];
+          const cx = x * cellW + cellW / 2;
+          const cy = y * cellH + cellH / 2;
+
+          const isLit = (p.r > 0 || p.g > 0 || p.b > 0);
+
+          if (isLit) {
+            const r = Math.min(255, Math.floor(p.r * brightness));
+            const g = Math.min(255, Math.floor(p.g * brightness));
+            const b = Math.min(255, Math.floor(p.b * brightness));
+
+            // Outer Bloom Halo
+            const haloGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 18);
+            haloGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.35 * brightness})`);
+            haloGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+            ctx.fillStyle = haloGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner Diode Lens
+            const ledGrad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, radius);
+            const hotR = Math.min(255, r + 70);
+            const hotG = Math.min(255, g + 70);
+            const hotB = Math.min(255, b + 70);
+            ledGrad.addColorStop(0, `rgb(${hotR}, ${hotG}, ${hotB})`);
+            ledGrad.addColorStop(0.7, `rgb(${r}, ${g}, ${b})`);
+            ledGrad.addColorStop(1, `rgb(${Math.floor(r * 0.4)}, ${Math.floor(g * 0.4)}, ${Math.floor(b * 0.4)})`);
+
+            ctx.fillStyle = ledGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Unlit dark LED socket
+            ctx.fillStyle = "#0c1017";
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#06090e";
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    setInterval(renderFrame, 40); // 25 FPS Engine
+
+    // -------------------------------------------------------------------------
+    // User Action Handlers
+    // -------------------------------------------------------------------------
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    function updateWeatherFreshnessUI() {
+      const badge = document.getElementById("weatherFreshnessBadge");
+      const status = document.getElementById("weatherFreshnessStatus");
+      if (!badge || !status) return;
+
+      const elapsed = Date.now() - weatherData.lastUpdateMs;
+      const remaining = Math.max(0, WEATHER_EXPIRATION_MS - elapsed);
+
+      if (remaining <= 0 || !weatherData.valid) {
+        weatherData.valid = false;
+        badge.textContent = "Expired (>2h)";
+        badge.style.background = "#da3633";
+        badge.style.color = "#ffffff";
+        status.innerHTML = `<span style="color:#f85149; font-weight:600;">⚠️ Weather display OFF</span> (>2h without data). Send new weather info to re-enable.`;
+      } else {
+        weatherData.valid = true;
+        badge.textContent = "Active";
+        badge.style.background = "#238636";
+        badge.style.color = "#ffffff";
+        const remH = Math.floor(remaining / 3600000);
+        const remM = Math.floor((remaining % 3600000) / 60000);
+        const remS = Math.floor((remaining % 60000) / 1000);
+        const pad = n => String(n).padStart(2, '0');
+        status.textContent = `Expires in: ${pad(remH)}:${pad(remM)}:${pad(remS)} without update`;
+      }
+    }
+
+    function simulateWeatherTimeout() {
+      weatherData.lastUpdateMs = Date.now() - (WEATHER_EXPIRATION_MS + 1000);
+      weatherData.valid = false;
+      if (currentMode === "weather") {
+        currentMode = "clock";
+        if (modeTimeout) clearTimeout(modeTimeout);
+        document.getElementById("dispModeLabel").textContent = "Clock (25 FPS)";
+      }
+      showToast("⏳ 2 hours elapsed: Weather expired -> Matrix switched to clock mode!");
+      updateWeatherFreshnessUI();
+    }
+
+    function refreshWeatherData() {
+      weatherData.lastUpdateMs = Date.now();
+      weatherData.valid = true;
+      showToast("🌤️ New weather info received -> Weather displaying enabled!");
+      updateWeatherFreshnessUI();
+      onWeatherChange();
+    }
+
+    function triggerWeatherScreen(durationMs = 8000) {
+      if (Date.now() - weatherData.lastUpdateMs >= WEATHER_EXPIRATION_MS) {
+        weatherData.valid = false;
+      }
+      if (!weatherData.valid) {
+        showToast("⚠️ Weather expired (>2h without update). Send new weather to display!");
+        updateWeatherFreshnessUI();
+        return;
+      }
+      if (modeTimeout) clearTimeout(modeTimeout);
+      currentMode = "weather";
+      activeShowcase = null;
+      document.getElementById("dispModeLabel").textContent = "Weather Screen (16×16 Icon + Info)";
+      showToast(`Showing 16x16 Weather Screen (${Math.round(durationMs / 1000)}s)`);
+
+      modeTimeout = setTimeout(() => {
+        currentMode = "clock";
+        document.getElementById("dispModeLabel").textContent = "Clock (25 FPS)";
+      }, durationMs);
+
+      // If BLE connected, send to physical clock too
+      sendBleCommand({ cmd: "showWeather", duration: durationMs });
+    }
+
+    function toggleClockWeatherMode() {
+      if (Date.now() - weatherData.lastUpdateMs >= WEATHER_EXPIRATION_MS) {
+        weatherData.valid = false;
+      }
+      if (currentMode === "weather") {
+        currentMode = "clock";
+        if (modeTimeout) clearTimeout(modeTimeout);
+        document.getElementById("dispModeLabel").textContent = "Clock (25 FPS)";
+      } else {
+        if (!weatherData.valid) {
+          showToast("⚠️ Weather expired (>2h without update). Send new weather to display!");
+          updateWeatherFreshnessUI();
+          return;
+        }
+        currentMode = "weather";
+        document.getElementById("dispModeLabel").textContent = "Weather Screen (Continuous)";
+      }
+    }
+
+    function onWeatherChange() {
+      weatherData.valid = true;
+      weatherData.lastUpdateMs = Date.now();
+      updateWeatherFreshnessUI();
+
+      const sel = document.getElementById("weatherSelect");
+      const opt = sel.options[sel.selectedIndex];
+      weatherData.desc = opt.text.replace(/^[^\s]+\s+/, "");
+      weatherData.conditionKey = opt.value;
+      showToast(`Weather set: ${weatherData.temp}°C ${weatherData.desc}`);
+
+      sendBleCommand({
+        weather: {
+          temp: weatherData.temp,
+          desc: weatherData.desc,
+          sunrise: `${String(calculatedDawn.h).padStart(2, '0')}:${String(calculatedDawn.m).padStart(2, '0')}`,
+          sunset: `${String(calculatedDusk.h).padStart(2, '0')}:${String(calculatedDusk.m).padStart(2, '0')}`
+        }
+      });
+    }
+
+    function onTempInput(val) {
+      weatherData.temp = parseInt(val, 10);
+      document.getElementById("tempValLabel").textContent = `${weatherData.temp}°C`;
+      onWeatherChange();
+    }
+
+    function onDayNightModeChange() {
+      dayNightMode = document.getElementById("dayNightModeSelect").value;
+      showToast(`Day/Night mode: ${dayNightMode}`);
+    }
+
+    function toggleFollowTime(enabled) {
+      followRealTime = enabled;
+      showToast(enabled ? "Following real computer time" : "Manual time scrubbing enabled");
+    }
+
+    function onTimeScrub(val) {
+      manualTimeSec = parseInt(val, 10);
+      followRealTime = false;
+      document.getElementById("followTimeSwitch").checked = false;
+      const h = Math.floor(manualTimeSec / 3600);
+      const rem = manualTimeSec % 3600;
+      const m = Math.floor(rem / 60);
+      const s = rem % 60;
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById("scrubberTimeVal").textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+    }
+
+    function setTimePreset(h, m, label) {
+      manualTimeSec = (h * 3600) + (m * 60);
+      followRealTime = false;
+      document.getElementById("followTimeSwitch").checked = false;
+      document.getElementById("timeScrubber").value = manualTimeSec;
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById("scrubberTimeVal").textContent = `${pad(h)}:${pad(m)}:00`;
+      showToast(`Set time to ${pad(h)}:${pad(m)}:00 (${label})`);
+    }
+
+    function toggleColonBlink(enabled) {
+      blinkColon = enabled;
+      sendBleCommand({ blinkColon: enabled });
+    }
+
+    function onColorPick(hex) {
+      document.getElementById("colorPicker").value = hex;
+      document.getElementById("colorValLabel").textContent = hex.toUpperCase();
+      const rgbNum = parseInt(hex.slice(1), 16);
+      clockColor = {
+        r: (rgbNum >> 16) & 0xFF,
+        g: (rgbNum >> 8) & 0xFF,
+        b: rgbNum & 0xFF
+      };
+      sendBleCommand({ color: hex });
+    }
+
+    function onBrightnessInput(val) {
+      brightness = parseInt(val, 10) / 100;
+      document.getElementById("brightValLabel").textContent = `${val}%`;
+      const pioBrightness = Math.round(brightness * 255);
+      sendBleCommand({ brightness: pioBrightness });
+    }
+
+    // Alarm triggers
+    function triggerAlarmTest(id) {
+      initAudio();
+      const txt = document.getElementById("alarmCustomText").value.trim() || `ALARM ${id}`;
+      const beeps = parseInt(document.getElementById("beepsRange").value, 10);
+      const pause = parseInt(document.getElementById("pauseRange").value, 10);
+
+      activeAlarm = {
+        id: id,
+        text: txt,
+        durSec: 30,
+        beeps: beeps,
+        pauseMs: pause,
+        startTime: Date.now()
+      };
+      activeShowcase = null;
+      document.getElementById("dispModeLabel").textContent = `🔔 Alarm ${id} Active!`;
+      showToast(`Alarm ${id} ringing! ("${txt}")`);
+
+      sendBleCommand({ cmd: "testAlarm", id: id });
+    }
+
+    function stopActiveAlarm() {
+      activeAlarm = null;
+      document.getElementById("dispModeLabel").textContent = "Clock (25 FPS)";
+      showToast("Alarm stopped and silenced");
+      sendBleCommand({ cmd: "stopAlarm" });
+    }
+
+    function toggleBuzzerSound(enabled) {
+      alarmBuzzerEnabled = enabled;
+      document.getElementById("audioStatusLabel").textContent = enabled ? "🔊 Sound ON" : "🔇 Muted";
+      showToast(enabled ? "Buzzer audio enabled" : "Buzzer audio muted");
+    }
+
+    // Showcase animations
+    function startShowcase(variant) {
+      activeAlarm = null;
+      activeShowcase = {
+        id: variant,
+        startMs: Date.now(),
+        durMs: 5000
+      };
+      const names = ["🌌 Aurora Plasma", "⚡ Cyber Matrix Rain", "🌟 Supernova Wave"];
+      document.getElementById("dispModeLabel").textContent = `Showcase: ${names[variant]}`;
+      showToast(`Playing 5s: ${names[variant]}`);
+
+      sendBleCommand({ cmd: "playAnim", variant: variant, duration: 5000 });
+    }
+
+    function playRandomShowcase() {
+      const v = Math.floor(Math.random() * 3);
+      startShowcase(v);
+    }
+
+    // Live GPS Open-Meteo Weather Fetch
+    async function fetchLiveGpsWeather() {
+      showToast("Fetching local forecast…");
+      try {
+        let lat = 52.23; // Warsaw default
+        let lon = 21.01;
+
+        if (navigator.geolocation) {
+          try {
+            const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000 }));
+            lat = pos.coords.latitude;
+            lon = pos.coords.longitude;
+          } catch (e) { }
+        }
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const temp = Math.round(data.current.temperature_2m);
+        weatherData.temp = temp;
+        document.getElementById("tempSlider").value = temp;
+        document.getElementById("tempValLabel").textContent = `${temp}°C`;
+
+        // Decode condition
+        const code = data.current.weather_code;
+        if (code === 0) weatherData.desc = "Sunny";
+        else if (code <= 2) weatherData.desc = "Partly Cloudy";
+        else if (code === 3) weatherData.desc = "Overcast";
+        else if (code >= 45 && code <= 48) weatherData.desc = "Foggy";
+        else if (code >= 51 && code <= 67) weatherData.desc = "Rain";
+        else if (code >= 71 && code <= 77) weatherData.desc = "Snow";
+        else if (code >= 80 && code <= 82) weatherData.desc = "Showers";
+        else if (code >= 95) weatherData.desc = "Thunderstorm";
+        else weatherData.desc = "Partly Cloudy";
+
+        // Select option in dropdown
+        const sel = document.getElementById("weatherSelect");
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].text.toLowerCase().includes(weatherData.desc.toLowerCase())) {
+            sel.selectedIndex = i;
+            break;
+          }
+        }
+
+        weatherData.valid = true;
+        weatherData.lastUpdateMs = Date.now();
+        updateWeatherFreshnessUI();
+        triggerWeatherScreen(8000);
+        showToast(`Fetched: ${temp}°C ${weatherData.desc} ⚡`);
+      } catch (err) {
+        showToast("Weather fetch failed: " + err.message);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Optional Web Bluetooth Hardware Bridge
+    // -------------------------------------------------------------------------
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+    let bleDevice = null;
+    let bleChar = null;
+
+    async function toggleBluetooth() {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+        document.getElementById("connBadge").className = "badge";
+        document.getElementById("connText").textContent = "Simulator Mode (Offline)";
+        document.getElementById("btnConnect").textContent = "Connect Real ESP32";
+        showToast("Bluetooth Disconnected");
+        return;
+      }
+
+      if (!navigator.bluetooth) {
+        alert("Web Bluetooth is available in Google Chrome, Edge, and Bluefy (iOS).");
+        return;
+      }
+
+      try {
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ name: "ESP32_Clock" }, { namePrefix: "ESP32" }],
+          optionalServices: [SERVICE_UUID]
+        });
+
+        const server = await bleDevice.gatt.connect();
+        const svc = await server.getPrimaryService(SERVICE_UUID);
+        bleChar = await svc.getCharacteristic(CHARACTERISTIC_UUID);
+
+        document.getElementById("connBadge").className = "badge connected";
+        document.getElementById("connText").textContent = "Hardware Connected";
+        document.getElementById("btnConnect").textContent = "Disconnect ESP32";
+        showToast("Connected to physical ESP32 clock!");
+      } catch (e) {
+        showToast("Connection failed: " + e.message);
+      }
+    }
+
+    async function sendBleCommand(obj) {
+      if (!bleChar) return;
+      try {
+        const encoder = new TextEncoder();
+        await bleChar.writeValue(encoder.encode(JSON.stringify(obj)));
+      } catch (e) {
+        console.log("BLE write error:", e);
+      }
+    }
+  </script>
+</body>
+
+</html>

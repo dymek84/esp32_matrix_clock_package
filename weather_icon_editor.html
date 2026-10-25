@@ -1,0 +1,1221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ESP32 16×16 Weather Icon Studio & Pixel Editor</title>
+  <style>
+    :root {
+      --bg: #070a10;
+      --card-bg: rgba(18, 24, 38, 0.9);
+      --card-border: rgba(45, 60, 88, 0.6);
+      --card-border-glow: rgba(56, 139, 253, 0.35);
+      --text: #f0f6fc;
+      --text-muted: #8b949e;
+      --accent: #388bfd;
+      --accent-hover: #1f6feb;
+      --cyan: #39c5cf;
+      --cyan-hover: #2ba8b1;
+      --purple: #8957e5;
+      --success: #238636;
+      --danger: #da3633;
+      --warning: #d29922;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #151f33 0%, #070a10 70%);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      padding-bottom: 60px;
+      max-width: 1200px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 18px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #39c5cf 0%, #58a6ff 50%, #d2a8ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+    }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #58a6ff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* Layout grid */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: minmax(360px, 1fr) minmax(380px, 1.1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .studio-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Top Selector Bar */
+    .selector-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .selector-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    select, input[type="text"] {
+      background: #0d1117;
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.2);
+    }
+
+    /* Buttons */
+    button, .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 12px rgba(56, 139, 253, 0.4); }
+    .btn-cyan { background: var(--cyan); color: #070a10; font-weight: 700; }
+    .btn-cyan:hover { background: var(--cyan-hover); box-shadow: 0 0 12px rgba(57, 197, 207, 0.4); }
+    .btn-secondary { background: #21262d; color: var(--text); border-color: var(--card-border); }
+    .btn-secondary:hover { background: #30363d; border-color: #8b949e; }
+    .btn-danger { background: rgba(218, 54, 51, 0.15); color: #f85149; border-color: rgba(248, 81, 73, 0.4); }
+    .btn-danger:hover { background: #da3633; color: #fff; }
+    .btn-success { background: #238636; color: #fff; }
+    .btn-success:hover { background: #2ea043; }
+    .btn-purple { background: var(--purple); color: #fff; }
+    .btn-purple:hover { background: #9a68f0; }
+
+    /* Matrix Editor Canvas / Grid */
+    .editor-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+    .matrix-bezel {
+      background: #04060a;
+      border: 10px solid #14171f;
+      border-radius: 14px;
+      box-shadow:
+        0 0 0 2px #262c3b,
+        0 16px 36px rgba(0, 0, 0, 0.8),
+        inset 0 0 15px rgba(0, 0, 0, 0.9);
+      padding: 10px;
+      position: relative;
+    }
+    #matrixGrid {
+      display: grid;
+      grid-template-columns: repeat(16, 22px);
+      grid-template-rows: repeat(16, 22px);
+      gap: 3px;
+      background: #090c12;
+      padding: 6px;
+      border-radius: 6px;
+      cursor: crosshair;
+    }
+    @media (max-width: 500px) {
+      #matrixGrid {
+        grid-template-columns: repeat(16, 17px);
+        grid-template-rows: repeat(16, 17px);
+        gap: 2px;
+      }
+    }
+    .led-pixel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: #0c0f16;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+      transition: background 0.04s, box-shadow 0.04s;
+    }
+    .led-pixel:hover {
+      outline: 2px solid #58a6ff;
+      z-index: 10;
+    }
+    .led-pixel.active {
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    /* Rulers / Coordinate Header */
+    .ruler-x {
+      display: grid;
+      grid-template-columns: repeat(16, 22px);
+      gap: 3px;
+      padding: 0 6px 4px 6px;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      color: #6e7681;
+      text-align: center;
+    }
+    @media (max-width: 500px) {
+      .ruler-x {
+        grid-template-columns: repeat(16, 17px);
+        gap: 2px;
+      }
+    }
+
+    /* Info bar below matrix */
+    .pixel-info-bar {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 10px;
+      padding: 6px 12px;
+      background: #0d1117;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    /* Tool Toolbar */
+    .tool-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      justify-content: center;
+    }
+    .tool-btn {
+      background: #161b22;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .tool-btn:hover {
+      background: #21262d;
+      border-color: #8b949e;
+    }
+    .tool-btn.active {
+      background: #1f6feb;
+      border-color: #58a6ff;
+      color: #fff;
+      box-shadow: 0 0 8px rgba(56, 139, 253, 0.4);
+    }
+
+    /* Color Palette */
+    .palette-box {
+      margin-top: 16px;
+      background: #0d1117;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .color-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: none;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch {
+      border: 2px solid var(--card-border);
+      border-radius: 8px;
+    }
+    .current-color-badge {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: #161b22;
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-swatch-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .swatch:hover {
+      transform: scale(1.18);
+      border-color: #fff;
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+      z-index: 5;
+    }
+
+    /* Live Preview Section */
+    .preview-card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .hw-preview-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #020305;
+      border: 6px solid #14171f;
+      border-radius: 12px;
+      box-shadow: inset 0 0 15px #000;
+      min-height: 180px;
+    }
+    #previewCanvas {
+      image-rendering: pixelated;
+      border-radius: 4px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.9);
+    }
+
+    /* Code View / Textarea */
+    .code-container {
+      position: relative;
+    }
+    #codeTextarea {
+      width: 100%;
+      height: 270px;
+      background: #090c10;
+      color: #7ee787;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      resize: vertical;
+      white-space: pre;
+      overflow-x: auto;
+      tab-size: 2;
+    }
+    #codeTextarea:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(57, 197, 207, 0.2);
+      outline: none;
+    }
+    .code-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      justify-content: flex-end;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(13, 17, 23, 0.95);
+      border: 1px solid #388bfd;
+      color: #f0f6fc;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <h1>🎨 16×16 Weather Icon Studio</h1>
+      <p>Interactive Pixel Art Editor & C++ PROGMEM Code Generator for ESP32 Matrix Clock</p>
+    </div>
+    <div class="header-actions">
+      <label class="btn btn-secondary" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+        📂 Load weather_icons.h
+        <input type="file" id="headerFileInput" accept=".h,.cpp,.txt" style="display:none;" onchange="importWeatherHeaderFile(event)">
+      </label>
+      <a href="matrix_clock_simulator.html" class="btn btn-secondary">
+        ⏱️ Open Clock Simulator
+      </a>
+      <button class="btn btn-cyan" onclick="copyCppCode()">
+        📋 Copy C++ Code
+      </button>
+    </div>
+  </header>
+
+  <!-- TOP SELECTOR BAR -->
+  <div class="card" style="border-color: rgba(57, 197, 207, 0.4);">
+    <div class="selector-bar">
+      <div class="selector-group">
+        <label style="font-size:0.85rem; font-weight:700; color:var(--cyan);">Weather Icon:</label>
+        <select id="iconSelect" onchange="onIconSelectChange()">
+          <optgroup label="☀️ Daytime Weather Icons">
+            <option value="ICON_SUN" selected>☀️ ICON_SUN (Sunny / Clear Day)</option>
+            <option value="ICON_PARTLY_CLOUDY_DAY">⛅ ICON_PARTLY_CLOUDY_DAY (Partly Cloudy)</option>
+            <option value="ICON_CLOUDY">☁️ ICON_CLOUDY (Overcast / Cloudy)</option>
+            <option value="ICON_FOG">🌫️ ICON_FOG (Fog / Mist)</option>
+            <option value="ICON_RAIN">🌧️ ICON_RAIN (Rain / Moderate Rain)</option>
+            <option value="ICON_RAIN_SUN">🌦️ ICON_RAIN_SUN (Sun & Showers / Drizzle)</option>
+            <option value="ICON_SNOW">❄️ ICON_SNOW (Snow / Flurries)</option>
+            <option value="ICON_THUNDER_DAY">🌩️ ICON_THUNDER_DAY (Day Thunderstorm)</option>
+          </optgroup>
+          <optgroup label="🌙 Nighttime Weather Icons">
+            <option value="ICON_MOON">🌙 ICON_MOON (Clear Night Moon)</option>
+            <option value="ICON_PARTLY_CLOUDY_NIGHT">☁️🌙 ICON_PARTLY_CLOUDY_NIGHT (Partly Cloudy Night)</option>
+            <option value="ICON_CLOUDY_NIGHT">☁️ ICON_CLOUDY_NIGHT (Overcast Night)</option>
+            <option value="ICON_FOG_NIGHT">🌫️ ICON_FOG_NIGHT (Fog Night)</option>
+            <option value="ICON_RAIN_NIGHT">🌧️ ICON_RAIN_NIGHT (Rain Night)</option>
+            <option value="ICON_RAIN_MOON">🌧️🌙 ICON_RAIN_MOON (Moon & Showers)</option>
+            <option value="ICON_SNOW_NIGHT">❄️ ICON_SNOW_NIGHT (Snow Night)</option>
+            <option value="ICON_THUNDER_NIGHT">🌩️ ICON_THUNDER_NIGHT (Night Thunderstorm)</option>
+          </optgroup>
+          <optgroup label="✏️ Custom / Blank">
+            <option value="CUSTOM_BLANK">✨ Blank 16×16 Canvas</option>
+          </optgroup>
+        </select>
+
+        <label style="font-size:0.85rem; font-weight:700; color:var(--text-muted); margin-left:6px;">Variable Name:</label>
+        <input type="text" id="varNameInput" value="ICON_SUN" style="width:180px; font-family:var(--font-mono);" oninput="onVarNameChange()">
+      </div>
+
+      <div class="selector-group">
+        <button class="btn btn-secondary" onclick="revertIcon()">
+          🔄 Reset Icon
+        </button>
+        <button class="btn btn-danger" onclick="clearMatrix()">
+          🗑️ Clear All
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDIO MAIN GRID -->
+  <div class="studio-grid">
+
+    <!-- LEFT COLUMN: 16x16 MATRIX CANVAS & TOOLS -->
+    <div class="card">
+      <div class="card-title">
+        <span>✏️ Interactive 16×16 Matrix Grid</span>
+      </div>
+      <div class="card-subtitle">Click or drag across LEDs to paint. Right-click to erase.</div>
+
+      <div class="editor-container">
+        <!-- Ruler X -->
+        <div class="ruler-x">
+          <div>0</div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div>
+          <div>8</div><div>9</div><div>10</div><div>11</div><div>12</div><div>13</div><div>14</div><div>15</div>
+        </div>
+
+        <!-- 16x16 LED Grid -->
+        <div class="matrix-bezel">
+          <div id="matrixGrid"></div>
+        </div>
+
+        <!-- Hover info bar -->
+        <div class="pixel-info-bar">
+          <span id="coordInfo">Hover LED to see coordinates</span>
+          <span id="pixelColorInfo">Color: --</span>
+        </div>
+      </div>
+
+      <!-- TOOLS TOOLBAR -->
+      <div class="tool-bar">
+        <button class="tool-btn active" id="toolPen" onclick="setTool('pen')">
+          ✏️ Pen
+        </button>
+        <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')">
+          🧹 Eraser
+        </button>
+        <button class="tool-btn" id="toolPicker" onclick="setTool('picker')">
+          💧 Eyedropper
+        </button>
+        <button class="tool-btn" id="toolFill" onclick="setTool('fill')">
+          🪣 Fill
+        </button>
+        <button class="tool-btn" onclick="undo()" title="Undo (Ctrl+Z)">
+          ↩️ Undo
+        </button>
+        <button class="tool-btn" onclick="redo()" title="Redo (Ctrl+Y)">
+          ↪️ Redo
+        </button>
+      </div>
+
+      <!-- TRANSFORM TOOLBAR -->
+      <div class="tool-bar" style="margin-top:8px;">
+        <button class="tool-btn" onclick="shiftPixels(-1, 0)" title="Shift Left">⬅️</button>
+        <button class="tool-btn" onclick="shiftPixels(1, 0)" title="Shift Right">➡️</button>
+        <button class="tool-btn" onclick="shiftPixels(0, -1)" title="Shift Up">⬆️</button>
+        <button class="tool-btn" onclick="shiftPixels(0, 1)" title="Shift Down">⬇️</button>
+        <button class="tool-btn" onclick="flipHorizontal()" title="Flip Horizontal">🪞 Flip H</button>
+        <button class="tool-btn" onclick="flipVertical()" title="Flip Vertical">🪞 Flip V</button>
+        <button class="tool-btn" onclick="rotate90()" title="Rotate 90° Clockwise">🔁 Rot 90°</button>
+        <button class="tool-btn" onclick="invertColors()" title="Invert RGB">🔄 Invert</button>
+      </div>
+
+      <!-- COLOR PALETTE BOX -->
+      <div class="palette-box">
+        <div class="color-picker-row">
+          <input type="color" id="nativeColorPicker" value="#E96A48" onchange="onColorPicked(this.value)">
+          <div class="current-color-badge">
+            <span id="colorBadgeCircle" style="width:14px; height:14px; border-radius:50%; background:#E96A48; display:inline-block; border:1px solid #fff;"></span>
+            <input type="text" id="hexColorInput" value="#E96A48" style="width:90px; padding:4px 6px; font-size:0.82rem;" onchange="onHexInput(this.value)">
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">(Active Paint Color)</span>
+        </div>
+
+        <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">Weather Palette Presets:</div>
+        <div class="color-swatch-list" id="presetSwatches"></div>
+
+        <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); margin-top:12px; margin-bottom:4px;">Colors Used In This Icon:</div>
+        <div class="color-swatch-list" id="activeIconSwatches"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: LIVE HARDWARE PREVIEW & C++ CODE OUTPUT -->
+    <div class="card preview-card">
+      <div class="card-title">
+        <span>💡 Physical Matrix LED Preview (16×16)</span>
+      </div>
+      <div class="card-subtitle">Actual simulated LED glow and proportions on the clock hardware.</div>
+
+      <div class="hw-preview-box">
+        <canvas id="previewCanvas" width="192" height="192"></canvas>
+      </div>
+
+      <!-- C++ CODE OUTPUT / EDITOR -->
+      <div style="margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div class="card-title" style="margin-bottom:0;">
+            <span>💻 C++ PROGMEM Code (Edit or Paste):</span>
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">uint32_t [256]</span>
+        </div>
+        <div class="card-subtitle">
+          Real-time generated C/C++ array for <code style="color:var(--cyan)">include/weather_icons.h</code>. You can also edit hex values directly below and click "Apply Code to Matrix"!
+        </div>
+
+        <div class="code-container">
+          <textarea id="codeTextarea" spellcheck="false" oninput="onCodeManualInput()"></textarea>
+        </div>
+
+        <div class="code-actions">
+          <button class="btn btn-primary" onclick="applyCodeToMatrix()">
+            ⚡ Apply Code to Matrix
+          </button>
+          <button class="btn btn-cyan" onclick="copyCppCode()">
+            📋 Copy C++ Code
+          </button>
+          <button class="btn btn-secondary" onclick="downloadHeaderFile()">
+            💾 Download .h File
+          </button>
+          <button class="btn btn-purple" onclick="sendToSimulator()">
+            🚀 Test in Clock Simulator
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="toast">Code copied to clipboard!</div>
+
+  <!-- EMBEDDED WEATHER ICONS DATA -->
+  <script>
+    const EMBEDDED_ICONS = {"ICON_SUN":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFB703","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFB703","0x000000","0xFF9E00","0xFFB703","0xFFB703","0xFFB703","0xFFB703","0xFF9E00","0x000000","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFE066","0xFFE066","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFE066","0xFFFFFF","0xFFFFFF","0xFFE066","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFB703","0xFFE066","0xFFE066","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFE066","0xFFE066","0xFFB703","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0x000000","0xFFB703","0xFFE066","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFE066","0xFFB703","0x000000","0xFFB703","0xFF9E00","0xFF9E00","0xFFB703","0x000000","0xFFB703","0xFFE066","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFE066","0xFFB703","0x000000","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0xFFB703","0xFFE066","0xFFE066","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFE066","0xFFE066","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFE066","0xFFFFFF","0xFFFFFF","0xFFE066","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFE066","0xFFE066","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFB703","0x000000","0xFF9E00","0xFFB703","0xFFB703","0xFFB703","0xFFB703","0xFF9E00","0x000000","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFB703","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_MOON":["0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XCED4DA", "0XE0E1DD", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XCED4DA", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XF8F9FA", "0XCED4DA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0XCED4DA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XF8F9FA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XF8F9FA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0XCED4DA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XF8F9FA", "0XCED4DA", "0X6C757D", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X6C757D", "0XCED4DA", "0XF8F9FA", "0XFFFFFF", "0XFFFFFF", "0XCED4DA", "0X495057", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X495057", "0XCED4DA", "0XE0E1DD", "0X8D99AE", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000", "0X000000"],"ICON_CLOUDY":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xCED4DA","0x000000","0x000000","0x000000","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_CLOUDY_NIGHT":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x415A77","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x1B263B","0x000000","0x000000","0x000000","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_PARTLY_CLOUDY_DAY":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xDEE2E6","0xFFB703","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0xFF9E00","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xCED4DA","0x000000","0x000000","0x000000","0x000000","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_PARTLY_CLOUDY_NIGHT":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x8D99AE","0xF8F9FA","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xF8F9FA","0xFFFFFF","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFFFFF","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x415A77","0xFFFFFF","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0xF8F9FA","0xFFFFFF","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x1B263B","0x000000","0x000000","0x000000","0x000000","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_RAIN":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xCED4DA","0x000000","0x000000","0x000000","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x006494","0x000000","0x006494","0x00A6FB","0x006494","0x000000","0x006494","0x00A6FB","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x000000","0x000000","0x006494","0x000000","0x000000","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_RAIN_NIGHT":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x415A77","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x1B263B","0x000000","0x000000","0x000000","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x006494","0x000000","0x006494","0x00A6FB","0x006494","0x000000","0x006494","0x00A6FB","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x000000","0x000000","0x006494","0x000000","0x000000","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_RAIN_SUN":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFF9E00","0xFFB703","0xFFE066","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xDEE2E6","0xFFB703","0xFFE066","0xFFB703","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0xFF9E00","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xCED4DA","0x000000","0x000000","0x000000","0x000000","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_RAIN_MOON":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x8D99AE","0xF8F9FA","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xF8F9FA","0xFFFFFF","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFFFFF","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x415A77","0xFFFFFF","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0xF8F9FA","0xFFFFFF","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x1B263B","0x000000","0x000000","0x000000","0x000000","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x00A6FB","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x006494","0x000000","0x006494","0x000000","0x006494","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_THUNDER_DAY":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x495057","0x000000","0x000000","0x000000","0x495057","0x495057","0x495057","0x495057","0x495057","0xFFEA00","0xFFEA00","0x495057","0x495057","0x495057","0x495057","0x495057","0x343A40","0x000000","0x000000","0x000000","0x000000","0x343A40","0x343A40","0x343A40","0xFFEA00","0xFFEA00","0x343A40","0x343A40","0x343A40","0x343A40","0x343A40","0x343A40","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0xFFEA00","0xFFEA00","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_THUNDER_NIGHT":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x3D4A5A","0x566B82","0x3D4A5A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x3D4A5A","0x566B82","0x566B82","0x566B82","0x3D4A5A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x3D4A5A","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x3D4A5A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x3D4A5A","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x3D4A5A","0x3D4A5A","0x000000","0x000000","0x000000","0x000000","0x3D4A5A","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x3D4A5A","0x000000","0x000000","0x000000","0x3D4A5A","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x566B82","0x1B263B","0x000000","0x000000","0x000000","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0xFFEA00","0xFFEA00","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x0D1B2A","0x0D1B2A","0x0D1B2A","0xFFEA00","0xFFEA00","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0xFFEA00","0xFFEA00","0xFF9E00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xFFEA00","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_SNOW":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0xDEE2E6","0x000000","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xDEE2E6","0x000000","0x000000","0x000000","0xDEE2E6","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xCED4DA","0x000000","0x000000","0x000000","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_SNOW_NIGHT":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x415A77","0x000000","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x000000","0x000000","0x000000","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x1B263B","0x000000","0x000000","0x000000","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x1B263B","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x0D1B2A","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x74C0FC","0xE0FAFF","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x74C0FC","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_FOG":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xADB5BD","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xADB5BD","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xADB5BD","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xADB5BD","0x6C757D","0x000000","0x000000","0xADB5BD","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xADB5BD","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xADB5BD","0x6C757D","0x000000","0x000000","0x000000","0xADB5BD","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xADB5BD","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x6C757D","0xADB5BD","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xCED4DA","0xADB5BD","0x6C757D","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0xADB5BD","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xFFFFFF","0xADB5BD","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"],"ICON_FOG_NIGHT":["0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x1B263B","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x1B263B","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x1B263B","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x1B263B","0x000000","0x000000","0x415A77","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x1B263B","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x1B263B","0x000000","0x000000","0x000000","0x415A77","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x1B263B","0x415A77","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x778DA9","0x415A77","0x1B263B","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x415A77","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x8D99AE","0x415A77","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000","0x000000"]};
+  //    // State
+    const MATRIX_SIZE = 16;
+    let pixels = new Array(256).fill("0x000000");
+    let currentTool = "pen"; // 'pen', 'eraser', 'picker', 'fill'
+    let currentColor = "#E96A48";
+    let isMouseDown = false;
+    let currentIconName = "ICON_SUN";
+
+    // History for Undo / Redo
+    const historyStack = [];
+    let historyIndex = -1;
+    const MAX_HISTORY = 40;
+
+    // Palette Presets
+    const PALETTE_PRESETS = [
+      "#000000", "#FFFFFF", "#D7D7D7", "#A1A1A1", "#606060", "#48484A", "#242424",
+      "#FFAA00", "#FF7700", "#ED6E4C", "#E96A48", "#FC7551", "#FFD000", "#FFFF00",
+      "#39C5CF", "#609EAF", "#308395", "#126476", "#CADEE2", "#5699A8", "#90B2B9",
+      "#3FB950", "#2EA043", "#DA3633", "#F85149", "#8957E5", "#D2A8FF"
+    ];
+
+    // Initialization
+    window.addEventListener("DOMContentLoaded", () => {
+      try {
+        const savedPack = localStorage.getItem("imported_weather_icons_pack");
+        if (savedPack) {
+          const parsed = JSON.parse(savedPack);
+          Object.assign(EMBEDDED_ICONS, parsed);
+        }
+      } catch(e) {}
+
+      buildGrid();
+      buildPaletteSwatches();
+      loadIcon("ICON_SUN");
+
+      // Global mouse up
+      window.addEventListener("mouseup", () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          pushHistory();
+          updateCodeOutput();
+          updateLivePreview();
+          updateActiveColorSwatches();
+        }
+      });
+
+      // Keyboard shortcuts
+      window.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+          e.preventDefault();
+          if (e.shiftKey) redo(); else undo();
+        } else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+          e.preventDefault();
+          redo();
+        } else if (e.key === "p" || e.key === "P") setTool("pen");
+        else if (e.key === "e" || e.key === "E") setTool("eraser");
+        else if (e.key === "i" || e.key === "I") setTool("picker");
+        else if (e.key === "g" || e.key === "G") setTool("fill");
+      });
+    });
+
+    // Build 16x16 Grid DOM
+    function buildGrid() {
+      const grid = document.getElementById("matrixGrid");
+      grid.innerHTML = "";
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const idx = y * 16 + x;
+          const pixel = document.createElement("div");
+          pixel.className = "led-pixel";
+          pixel.dataset.index = idx;
+          pixel.dataset.x = x;
+          pixel.dataset.y = y;
+
+          pixel.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            isMouseDown = true;
+            if (e.button === 2) {
+              // Right click erases
+              applyToolToPixel(idx, "eraser");
+            } else {
+              applyToolToPixel(idx, currentTool);
+            }
+          });
+
+          pixel.addEventListener("mouseenter", () => {
+            updateHoverInfo(x, y, idx);
+            if (isMouseDown) {
+              applyToolToPixel(idx, currentTool);
+            }
+          });
+
+          pixel.addEventListener("contextmenu", (e) => e.preventDefault());
+
+          grid.appendChild(pixel);
+        }
+      }
+    }
+
+    function buildPaletteSwatches() {
+      const container = document.getElementById("presetSwatches");
+      container.innerHTML = "";
+      PALETTE_PRESETS.forEach(hex => {
+        const sw = document.createElement("div");
+        sw.className = "swatch";
+        sw.style.background = hex;
+        sw.title = hex;
+        sw.addEventListener("click", () => onColorPicked(hex));
+        container.appendChild(sw);
+      });
+    }
+
+    function updateActiveColorSwatches() {
+      const container = document.getElementById("activeIconSwatches");
+      container.innerHTML = "";
+      const uniqueColors = new Set();
+      pixels.forEach(p => {
+        const hex = hex6ToRgbHex(p);
+        if (hex !== "#000000") uniqueColors.add(hex);
+      });
+
+      if (uniqueColors.size === 0) {
+        container.innerHTML = "<span style='font-size:0.75rem; color:#6e7681;'>No colors yet</span>";
+        return;
+      }
+
+      uniqueColors.forEach(hex => {
+        const sw = document.createElement("div");
+        sw.className = "swatch";
+        sw.style.background = hex;
+        sw.title = hex + " (Click to select)";
+        sw.addEventListener("click", () => onColorPicked(hex));
+        container.appendChild(sw);
+      });
+    }
+
+    // Convert "0x123456" to "#123456"
+    function hex6ToRgbHex(hexStr) {
+      if (!hexStr) return "#000000";
+      const clean = hexStr.replace(/^0x/i, "").padStart(6, "0");
+      return "#" + clean.toUpperCase();
+    }
+
+    // Convert "#123456" to "0x123456"
+    function rgbHexToHex6(rgbStr) {
+      const clean = rgbStr.replace(/^#/, "").padStart(6, "0");
+      return "0x" + clean.toUpperCase();
+    }
+
+    // Tools
+    function setTool(toolName) {
+      currentTool = toolName;
+      document.querySelectorAll(".tool-btn").forEach(btn => btn.classList.remove("active"));
+      const map = { pen: "toolPen", eraser: "toolEraser", picker: "toolPicker", fill: "toolFill" };
+      if (map[toolName]) {
+        document.getElementById(map[toolName]).classList.add("active");
+      }
+    }
+
+    function applyToolToPixel(idx, tool) {
+      if (idx < 0 || idx >= 256) return;
+
+      if (tool === "pen") {
+        pixels[idx] = rgbHexToHex6(currentColor);
+        renderPixelDom(idx);
+      } else if (tool === "eraser") {
+        pixels[idx] = "0x000000";
+        renderPixelDom(idx);
+      } else if (tool === "picker") {
+        const hex = hex6ToRgbHex(pixels[idx]);
+        onColorPicked(hex);
+        setTool("pen");
+      } else if (tool === "fill") {
+        floodFill(idx, rgbHexToHex6(currentColor));
+      }
+    }
+
+    function floodFill(startIdx, targetHex) {
+      const origHex = pixels[startIdx];
+      if (origHex.toUpperCase() === targetHex.toUpperCase()) return;
+
+      const queue = [startIdx];
+      const visited = new Set([startIdx]);
+
+      while (queue.length > 0) {
+        const curr = queue.pop();
+        pixels[curr] = targetHex;
+        renderPixelDom(curr);
+
+        const x = curr % 16;
+        const y = Math.floor(curr / 16);
+
+        const neighbors = [
+          x > 0 ? curr - 1 : -1,
+          x < 15 ? curr + 1 : -1,
+          y > 0 ? curr - 16 : -1,
+          y < 15 ? curr + 16 : -1
+        ];
+
+        neighbors.forEach(n => {
+          if (n !== -1 && !visited.has(n)) {
+            if (pixels[n].toUpperCase() === origHex.toUpperCase()) {
+              visited.add(n);
+              queue.push(n);
+            }
+          }
+        });
+      }
+    }
+
+    function renderPixelDom(idx) {
+      const el = document.querySelector(`.led-pixel[data-index="${idx}"]`);
+      if (!el) return;
+      const hex = hex6ToRgbHex(pixels[idx]);
+      if (pixels[idx] === "0x000000" || hex === "#000000") {
+        el.style.background = "#0c0f16";
+        el.style.boxShadow = "inset 0 1px 2px rgba(0,0,0,0.8)";
+        el.classList.remove("active");
+      } else {
+        el.style.background = hex;
+        el.style.boxShadow = `0 0 8px ${hex}88, inset 0 1px 2px rgba(255,255,255,0.4)`;
+        el.classList.add("active");
+      }
+    }
+
+    function renderAllPixelsDom() {
+      for (let i = 0; i < 256; i++) {
+        renderPixelDom(i);
+      }
+      updateLivePreview();
+      updateActiveColorSwatches();
+    }
+
+    function updateHoverInfo(x, y, idx) {
+      document.getElementById("coordInfo").textContent = `Pixel [X: ${x}, Y: ${y}] (Index: ${idx})`;
+      const hex = pixels[idx] || "0x000000";
+      const rgbHex = hex6ToRgbHex(hex);
+      document.getElementById("pixelColorInfo").innerHTML = `Color: <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${rgbHex}; border:1px solid #fff; vertical-align:middle;"></span> ${hex}`;
+    }
+
+    function onColorPicked(hex) {
+      currentColor = hex;
+      document.getElementById("nativeColorPicker").value = hex;
+      document.getElementById("hexColorInput").value = hex.toUpperCase();
+      document.getElementById("colorBadgeCircle").style.background = hex;
+    }
+
+    function onHexInput(val) {
+      val = val.trim();
+      if (!val.startsWith("#")) val = "#" + val;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        onColorPicked(val);
+      }
+    }
+
+    // Loading & Switching Icons
+    function onIconSelectChange() {
+      const sel = document.getElementById("iconSelect").value;
+      if (sel === "CUSTOM_BLANK") {
+        clearMatrix();
+        setVarName("ICON_CUSTOM");
+      } else {
+        loadIcon(sel);
+      }
+    }
+
+    function loadIcon(name) {
+      currentIconName = name;
+      setVarName(name);
+
+      if (EMBEDDED_ICONS[name]) {
+        pixels = [...EMBEDDED_ICONS[name]];
+      } else {
+        pixels = new Array(256).fill("0x000000");
+      }
+
+      historyStack.length = 0;
+      historyIndex = -1;
+      pushHistory();
+
+      renderAllPixelsDom();
+      updateCodeOutput();
+      showToast(`Loaded ${name}`);
+    }
+
+    function revertIcon() {
+      if (EMBEDDED_ICONS[currentIconName]) {
+        pixels = [...EMBEDDED_ICONS[currentIconName]];
+        pushHistory();
+        renderAllPixelsDom();
+        updateCodeOutput();
+        showToast(`Reverted ${currentIconName} to default`);
+      } else {
+        clearMatrix();
+      }
+    }
+
+    function clearMatrix() {
+      pixels = new Array(256).fill("0x000000");
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+      showToast("Cleared 16×16 matrix");
+    }
+
+    function setVarName(name) {
+      document.getElementById("varNameInput").value = name;
+    }
+
+    function onVarNameChange() {
+      updateCodeOutput();
+    }
+
+    // Transforms
+    function shiftPixels(dx, dy) {
+      const next = new Array(256).fill("0x000000");
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < 16 && ny >= 0 && ny < 16) {
+            next[ny * 16 + nx] = pixels[y * 16 + x];
+          }
+        }
+      }
+      pixels = next;
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+    }
+
+    function flipHorizontal() {
+      const next = new Array(256).fill("0x000000");
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          next[y * 16 + (15 - x)] = pixels[y * 16 + x];
+        }
+      }
+      pixels = next;
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+    }
+
+    function flipVertical() {
+      const next = new Array(256).fill("0x000000");
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          next[(15 - y) * 16 + x] = pixels[y * 16 + x];
+        }
+      }
+      pixels = next;
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+    }
+
+    function rotate90() {
+      const next = new Array(256).fill("0x000000");
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          // (x, y) -> (15 - y, x)
+          next[x * 16 + (15 - y)] = pixels[y * 16 + x];
+        }
+      }
+      pixels = next;
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+    }
+
+    function invertColors() {
+      pixels = pixels.map(hexStr => {
+        if (hexStr === "0x000000") return "0x000000";
+        const val = parseInt(hexStr.replace(/^0x/i, ""), 16);
+        const inv = (~val) & 0xFFFFFF;
+        return "0x" + inv.toString(16).padStart(6, "0").toUpperCase();
+      });
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+    }
+
+    // History (Undo / Redo)
+    function pushHistory() {
+      if (historyIndex < historyStack.length - 1) {
+        historyStack.splice(historyIndex + 1);
+      }
+      historyStack.push([...pixels]);
+      if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+      }
+      historyIndex = historyStack.length - 1;
+    }
+
+    function undo() {
+      if (historyIndex > 0) {
+        historyIndex--;
+        pixels = [...historyStack[historyIndex]];
+        renderAllPixelsDom();
+        updateCodeOutput();
+        showToast("Undo");
+      }
+    }
+
+    function redo() {
+      if (historyIndex < historyStack.length - 1) {
+        historyIndex++;
+        pixels = [...historyStack[historyIndex]];
+        renderAllPixelsDom();
+        updateCodeOutput();
+        showToast("Redo");
+      }
+    }
+
+    // Live Hardware Preview (Canvas)
+    function updateLivePreview() {
+      const canvas = document.getElementById("previewCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#020305";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const cellSize = canvas.width / 16; // 12px
+      const radius = cellSize * 0.42;     // circular LED
+
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const idx = y * 16 + x;
+          const hex = hex6ToRgbHex(pixels[idx]);
+          const cx = x * cellSize + cellSize / 2;
+          const cy = y * cellSize + cellSize / 2;
+
+          if (hex === "#000000") {
+            // Unlit LED socket
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#0c0e14";
+            ctx.fill();
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+            ctx.stroke();
+          } else {
+            // Lit LED with radial glow
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 1.5);
+            grad.addColorStop(0, "#ffffff");
+            grad.addColorStop(0.35, hex);
+            grad.addColorStop(1, hex + "00");
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Core LED
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = hex;
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    // C++ PROGMEM Code Generator
+    function generateCppCode() {
+      let varName = document.getElementById("varNameInput").value.trim() || "ICON_CUSTOM";
+      varName = varName.replace(/[^A-Za-z0-9_]/g, "_");
+
+      let out = "// FastLED 16x16 Weather Icon\n";
+      out += "const uint32_t " + varName + "[256] PROGMEM = {\n";
+
+      for (let y = 0; y < 16; y++) {
+        out += "  ";
+        for (let x = 0; x < 16; x++) {
+          const idx = y * 16 + x;
+          const hex = (pixels[idx] || "0x000000").toUpperCase();
+          out += hex + ", ";
+        }
+        out += "\n";
+      }
+
+      out += "};\n";
+      return out;
+    }
+
+    function updateCodeOutput() {
+      document.getElementById("codeTextarea").value = generateCppCode();
+    }
+
+    // Two-Way Editing: Apply Code to Matrix
+    function applyCodeToMatrix() {
+      const code = document.getElementById("codeTextarea").value;
+      const hexMatches = code.match(/0x[0-9A-Fa-f]{6}/g);
+
+      if (!hexMatches || hexMatches.length !== 256) {
+        showToast("⚠️ Error: Found " + (hexMatches ? hexMatches.length : 0) + " hex codes. Expected exactly 256!");
+        return;
+      }
+
+      // Extract var name if possible
+      const nameMatch = code.match(/const\s+uint32_t\s+([A-Za-z0-9_]+)\[256\]/);
+      if (nameMatch && nameMatch[1]) {
+        setVarName(nameMatch[1]);
+      }
+
+      pixels = hexMatches.map(h => h.toUpperCase());
+      pushHistory();
+      renderAllPixelsDom();
+      updateCodeOutput();
+      showToast("✅ Successfully applied code to 16×16 matrix!");
+    }
+
+    function onCodeManualInput() {
+      // User is typing in textarea, we don't overwrite until they click apply
+    }
+
+    function copyCppCode() {
+      const code = generateCppCode();
+      navigator.clipboard.writeText(code).then(() => {
+        showToast("📋 C++ array copied to clipboard!");
+      }).catch(() => {
+        const ta = document.getElementById("codeTextarea");
+        ta.select();
+        document.execCommand("copy");
+        showToast("📋 C++ array copied!");
+      });
+    }
+
+    function downloadHeaderFile() {
+      const code = generateCppCode();
+      const varName = document.getElementById("varNameInput").value.trim() || "weather_icon";
+      const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = varName.toLowerCase() + ".h";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("💾 Downloaded " + varName.toLowerCase() + ".h");
+    }
+
+    function sendToSimulator() {
+      // Save current icon to localStorage for simulator to preview
+      const varName = document.getElementById("varNameInput").value.trim() || "ICON_CUSTOM";
+      const data = {
+        name: varName,
+        pixels: pixels
+      };
+      localStorage.setItem("custom_weather_icon", JSON.stringify(data));
+      showToast("🚀 Icon saved to local storage! Opening Clock Simulator...");
+      setTimeout(() => {
+        window.open("matrix_clock_simulator.html", "_blank");
+      }, 500);
+    }
+
+    function importWeatherHeaderFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const regex = /const\s+uint32_t\s+([A-Za-z0-9_]+)\[256\]\s+PROGMEM\s*=\s*\{([^}]+)\};/g;
+        let match;
+        let count = 0;
+        while ((match = regex.exec(text)) !== null) {
+          const name = match[1];
+          const body = match[2];
+          const hexes = body.match(/0x[0-9A-Fa-f]{6}/g);
+          if (hexes && hexes.length === 256) {
+            EMBEDDED_ICONS[name] = hexes.map(h => h.toUpperCase());
+            count++;
+          }
+        }
+        if (count > 0) {
+          localStorage.setItem("imported_weather_icons_pack", JSON.stringify(EMBEDDED_ICONS));
+          loadIcon(currentIconName);
+          showToast(`✅ Successfully imported ${count} icons from ${file.name}!`);
+        } else {
+          showToast(`⚠️ No 16x16 icon arrays found in ${file.name}`);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => {
+        t.classList.remove("show");
+      }, 2400);
+    }
+  </script>
+</body>
+</html>

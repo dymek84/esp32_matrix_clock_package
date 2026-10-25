@@ -1,0 +1,6 @@
+{
+    "clangd.arguments": [
+        "--compile-commands-dir=c:/Users/dymek/Downloads/esp32_matrix_clock_package/.cache/clangd",
+        "--query-driver=C:/Users/dymek/.platformio/packages/toolchain-*/bin/*,C:/Users/dymek/.platformio/packages/tool-*/bin/*"
+    ]
+}
