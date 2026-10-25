@@ -380,11 +380,36 @@
       <span class="badge" style="background:#1f2937; color:#79c0ff;">Open-Meteo & Custom</span>
     </div>
 
+    <!-- Location Selector -->
+    <div style="background:#0d1117; padding:10px 14px; border-radius:8px; margin-bottom:12px; border:1px solid #30363d;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:0.85rem; font-weight:600; color:var(--text);">📍 Forecast Location</span>
+        <span id="activeLocationTag" class="badge" style="background:#162a45; color:#58a6ff; border-color:#1f4b82; font-size:0.75rem;">Colijnsplaat, NL</span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <select id="locationSelect" style="flex:1;" onchange="onLocationSelectChange()">
+          <option value="colijnsplaat" selected>📍 Colijnsplaat, NL (51.60° N, 3.85° E)</option>
+          <option value="kruiningen">📍 Kruiningen, NL (51.45° N, 4.03° E)</option>
+          <option value="goes">📍 Goes, NL (51.50° N, 3.89° E)</option>
+          <option value="zierikzee">📍 Zierikzee, NL (51.65° N, 3.92° E)</option>
+          <option value="gps">🛰️ Auto-Detect Device GPS</option>
+          <option value="custom">🔍 Search Any City...</option>
+        </select>
+        <button class="btn-secondary" style="padding:6px 12px; white-space:nowrap;" onclick="fetchAndSendWeather()">
+          🔄 Fetch
+        </button>
+      </div>
+      <div id="customCityContainer" style="display:none; margin-top:8px; gap:8px;">
+        <input type="text" id="customCityInput" placeholder="Enter city/town name (e.g. Amsterdam)..." style="flex:1;" onkeydown="if(event.key==='Enter')searchCustomCity()">
+        <button class="btn-secondary" style="padding:6px 12px;" onclick="searchCustomCity()">Search</button>
+      </div>
+    </div>
+
     <!-- Live Preview Banner -->
     <div style="display:flex; justify-content:space-between; align-items:center; background:#0d1117; padding:12px 16px; border-radius:8px; margin-bottom:14px; border:1px solid #30363d;">
       <div>
         <div style="font-size:0.8rem; color:var(--text-muted);">Current Forecast:</div>
-        <div id="weatherDisplay" style="font-size:1.25rem; font-weight:700; color:#58a6ff;">21°C Partly Cloudy</div>
+        <div id="weatherDisplay" style="font-size:1.25rem; font-weight:700; color:#58a6ff;">--°C Loading...</div>
         <div id="solarTimesDisplay" style="font-size:0.8rem; color:#79c0ff; margin-top:3px;">🌅 Dawn: --:-- | 🌇 Dusk: --:--</div>
       </div>
       <div id="weatherIcon" style="font-size:2.2rem;">⛅</div>
@@ -431,8 +456,8 @@
       <button class="btn-primary" onclick="sendCustomOrFetchedWeather()">
         📡 Send Weather to Clock
       </button>
-      <button class="btn-secondary" onclick="fetchAndSendWeather()">
-        📍 Auto-Fetch from GPS
+      <button class="btn-secondary" id="fetchWeatherBtn" onclick="fetchAndSendWeather()">
+        🔄 Fetch Colijnsplaat Weather
       </button>
     </div>
 
@@ -440,6 +465,20 @@
       <button class="btn-secondary btn-block" style="background:#1b2432; border-color:#388bfd; color:#79c0ff;" onclick="showWeatherScreenOnClock()">
         📺 Show 16x16 Weather Screen on Clock
       </button>
+    </div>
+
+    <div style="background:#0d1117; padding:10px 14px; border-radius:8px; border:1px solid #30363d; margin-top:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <span style="font-size:0.85rem; font-weight:600;">⏱️ Matrix Weather Show Frequency</span>
+        <span class="badge" id="weatherFreqBadge" style="background:#132338; color:#58a6ff; border-color:#1f4b82; font-size:0.75rem;">Every 5 min</span>
+      </div>
+      <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">
+        Controls how often the 48×16 matrix automatically displays the full 16×16 weather card (1–30 min).
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <input type="range" id="weatherFreqRange" min="1" max="30" value="5" style="flex:1;" oninput="onWeatherFreqChange(this.value)">
+        <span style="font-weight:700; min-width:48px; text-align:right; color:#79c0ff;" id="weatherFreqVal">5 min</span>
+      </div>
     </div>
 
     <div style="display:flex; align-items:center; justify-content:space-between; background:#0d1117; padding:8px 12px; border-radius:8px; border:1px solid #30363d; margin-top:8px;">
@@ -574,6 +613,43 @@
     </div>
   </div>
 
+  <!-- 6. CLOUD OTA FIRMWARE UPDATES (GITHUB) -->
+  <div class="card" style="border: 1px solid #238636;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🚀 Cloud OTA Firmware Update</div>
+        <div class="card-subtitle">Auto-update over GitHub Pages via phone hotspot</div>
+      </div>
+      <span class="badge" id="otaStatusBadge" style="background:#13281c; color:#3fb950; border-color:#238636;">GitHub Cloud OTA</span>
+    </div>
+
+    <div style="background:#0d1117; padding:12px 16px; border-radius:8px; margin-bottom:12px; border:1px solid #30363d;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:0.85rem; color:var(--text-muted);">Current Firmware on Clock:</span>
+        <span id="clockFwVersion" style="font-family:var(--font-mono); font-weight:700; color:#58a6ff;">v2.2.0</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:0.85rem; color:var(--text-muted);">Latest on GitHub:</span>
+        <span id="remoteFwVersion" style="font-family:var(--font-mono); font-weight:700; color:var(--text);">Checking...</span>
+      </div>
+      <div id="otaNotesContainer" style="display:none; margin-top:8px; font-size:0.8rem; color:#7ee787; background:#0c2217; padding:8px 10px; border-radius:6px; border:1px solid #194d33;">
+        <span id="otaNotesText">New firmware available!</span>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:8px;">
+      <button class="btn-secondary" onclick="checkCloudOta()">
+        🔍 Check GitHub Updates
+      </button>
+      <button class="btn-success" id="btnStartOta" onclick="startCloudOta()">
+        ⚡ Flash Firmware (OTA)
+      </button>
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-muted); text-align:center;">
+      ℹ️ Clock connects to your phone hotspot to download <code>firmware.bin</code> directly from GitHub Pages. Progress is displayed live on the LED matrix.
+    </div>
+  </div>
+
   <!-- Toast popup for notifications -->
   <div id="toast">Settings updated</div>
 
@@ -586,12 +662,15 @@
     let bleCharacteristic = null;
     let isConnected = false;
 
-    // Alarm presets & state
+    // Alarm presets & state (7 Alarms including break starts and break ends)
     let alarmsState = [
-      { id: 1, en: true, h: 9, m: 29, dur: 60, beeps: 2, pause: 1000, inter: 10, txt: "Pause" },
-      { id: 2, en: true, h: 12, m: 29, dur: 60, beeps: 2, pause: 1000, inter: 10, txt: "Pause" },
-      { id: 3, en: true, h: 14, m: 59, dur: 30, beeps: 3, pause: 1500, inter: 5,  txt: "Coffie" },
-      { id: 4, en: true, h: 15, m: 55, dur: 300, beeps: 2, pause: 1000, inter: 10, txt: "Fininsh" }
+      { id: 1, en: true, h: 9,  m: 29, dur: 60,  beeps: 2, pause: 1000, inter: 10, txt: "Pause" },
+      { id: 2, en: true, h: 9,  m: 55, dur: 5,   beeps: 1, pause: 0,    inter: 10, txt: "End Pause" },
+      { id: 3, en: true, h: 12, m: 29, dur: 60,  beeps: 2, pause: 1000, inter: 10, txt: "Pause" },
+      { id: 4, en: true, h: 12, m: 55, dur: 5,   beeps: 1, pause: 0,    inter: 10, txt: "End Pause" },
+      { id: 5, en: true, h: 14, m: 59, dur: 30,  beeps: 3, pause: 1500, inter: 5,  txt: "Coffie" },
+      { id: 6, en: true, h: 15, m: 10, dur: 3,   beeps: 1, pause: 0,    inter: 5,  txt: "End Coffie" },
+      { id: 7, en: true, h: 15, m: 55, dur: 300, beeps: 2, pause: 1000, inter: 10, txt: "Fininsh" }
     ];
 
     // Live clock ticker
@@ -621,9 +700,21 @@
       const container = document.getElementById('alarmsContainer');
       container.innerHTML = '';
 
+      const alarmNames = [
+        "Morning Break 1 (Start)",
+        "Morning Break 1 (End - 5s Long Beep)",
+        "Lunch Break 2 (Start)",
+        "Lunch Break 2 (End - 5s Long Beep)",
+        "Coffee Break (Start)",
+        "Coffee Break (End - 3s Long Beep)",
+        "Shift Finish / End of Day"
+      ];
+
       alarmsState.forEach((a, idx) => {
         const pad = n => String(n).padStart(2, '0');
         const timeVal = `${pad(a.h)}:${pad(a.m)}`;
+        const subName = alarmNames[idx] || `Alarm ${a.id}`;
+        const pauseDisplay = (a.pause === 0) ? "Continuous Tone" : `${(a.pause / 1000).toFixed(1)}s`;
 
         const card = document.createElement('div');
         card.className = 'alarm-card' + (a.en ? ' active-alarm' : '');
@@ -632,8 +723,10 @@
         card.innerHTML = `
           <div class="alarm-card-header">
             <div class="alarm-title">
-              <span>Alarm ${a.id}</span>
-              <span style="font-family:var(--font-mono); font-size:1.1rem; color:#58a6ff;">${timeVal}</span>
+              <div>
+                <span>Alarm ${a.id}: ${subName}</span>
+                <div style="font-family:var(--font-mono); font-size:1.15rem; color:#58a6ff; font-weight:700; margin-top:2px;">${timeVal}</div>
+              </div>
             </div>
             <label class="switch">
               <input type="checkbox" id="alarmEn_${a.id}" ${a.en ? 'checked' : ''} onchange="onAlarmToggle(${a.id}, this.checked)">
@@ -652,7 +745,7 @@
                 <span>Alarm Length</span>
                 <span class="val" id="alarmDurLabel_${a.id}">${a.dur}s</span>
               </div>
-              <input type="range" id="alarmDur_${a.id}" min="5" max="600" step="5" value="${a.dur}" oninput="document.getElementById('alarmDurLabel_${a.id}').textContent = this.value + 's'; updateAlarmData(${a.id})">
+              <input type="range" id="alarmDur_${a.id}" min="1" max="600" step="1" value="${a.dur}" oninput="document.getElementById('alarmDurLabel_${a.id}').textContent = this.value + 's'; updateAlarmData(${a.id})">
             </div>
           </div>
 
@@ -667,10 +760,10 @@
 
             <div class="form-group">
               <div class="form-label">
-                <span>Time Between Beeps</span>
-                <span class="val" id="alarmPauseLabel_${a.id}">${(a.pause / 1000).toFixed(1)}s</span>
+                <span>Pause Between Beeps (0 = Steady Tone)</span>
+                <span class="val" id="alarmPauseLabel_${a.id}">${pauseDisplay}</span>
               </div>
-              <input type="range" id="alarmPause_${a.id}" min="200" max="4000" step="100" value="${a.pause}" oninput="document.getElementById('alarmPauseLabel_${a.id}').textContent = (this.value/1000).toFixed(1) + 's'; updateAlarmData(${a.id})">
+              <input type="range" id="alarmPause_${a.id}" min="0" max="4000" step="100" value="${a.pause}" oninput="document.getElementById('alarmPauseLabel_${a.id}').textContent = (this.value == 0) ? 'Continuous Tone' : (this.value/1000).toFixed(1) + 's'; updateAlarmData(${a.id})">
             </div>
           </div>
 
@@ -829,9 +922,41 @@
           if (msg.blink !== undefined) {
             document.getElementById('blinkColonSwitch').checked = !!msg.blink;
           }
+          if (msg.weatherIntervalMin !== undefined) {
+            document.getElementById('weatherFreqRange').value = msg.weatherIntervalMin;
+            document.getElementById('weatherFreqVal').textContent = `${msg.weatherIntervalMin} min`;
+            document.getElementById('weatherFreqBadge').textContent = `Every ${msg.weatherIntervalMin} min`;
+          }
+          if (msg.firmwareVersion) {
+            document.getElementById('clockFwVersion').textContent = `v${msg.firmwareVersion}`;
+          }
+        } else if (msg.type === "otaStatus") {
+          document.getElementById('clockFwVersion').textContent = `v${msg.version || '2.2.0'}`;
+          document.getElementById('remoteFwVersion').textContent = msg.remote ? `v${msg.remote}` : 'Up to date';
+          const badge = document.getElementById('otaStatusBadge');
+          const notesBox = document.getElementById('otaNotesContainer');
+          const notesTxt = document.getElementById('otaNotesText');
+          if (msg.available) {
+            badge.textContent = "New Version Available!";
+            badge.style.background = "#2ea043";
+            badge.style.color = "#fff";
+            notesBox.style.display = "block";
+            notesTxt.textContent = `Update to v${msg.remote}: ${msg.notes || 'Performance improvements & fixes'}`;
+            showToast(`Update available: v${msg.remote}! Click Flash Firmware.`);
+          } else {
+            badge.textContent = "Firmware is Up-to-Date";
+            badge.style.background = "#13281c";
+            badge.style.color = "#3fb950";
+            notesBox.style.display = "none";
+            showToast("Clock firmware is up to date.");
+          }
         } else if (msg.type === "alarms" && Array.isArray(msg.alarms)) {
           msg.alarms.forEach(incoming => {
-            const found = alarmsState.find(x => x.id === incoming.id);
+            let found = alarmsState.find(x => x.id === incoming.id);
+            if (!found && incoming.id >= 1 && incoming.id <= 7) {
+              found = { id: incoming.id, en: true, h: 0, m: 0, dur: 60, beeps: 2, pause: 1000, inter: 10, txt: "" };
+              alarmsState.push(found);
+            }
             if (found) {
               if (incoming.en !== undefined) found.en = !!incoming.en;
               if (incoming.h !== undefined) found.h = incoming.h;
@@ -843,6 +968,7 @@
               if (incoming.txt !== undefined) found.txt = incoming.txt;
             }
           });
+          alarmsState.sort((a, b) => a.id - b.id);
           renderAlarms();
         } else if (msg.status === "ok") {
           showToast(msg.message || "Applied successfully!");
@@ -853,6 +979,13 @@
     }
 
     // Action Handlers
+    function onWeatherFreqChange(val) {
+      const num = parseInt(val, 10);
+      document.getElementById('weatherFreqVal').textContent = `${num} min`;
+      document.getElementById('weatherFreqBadge').textContent = `Every ${num} min`;
+      sendPayload({ weatherIntervalMin: num });
+      showToast(`Weather overlay: every ${num} min`);
+    }
     async function syncExactPhoneTime() {
       const now = new Date();
       const pad = n => String(n).padStart(2, '0');
@@ -1107,23 +1240,133 @@
       showToast("Showing 16x16 weather screen on clock 📺");
     }
 
-    async function fetchAndSendWeather() {
-      showToast("Fetching local weather…");
-      try {
-        let lat = 52.23; // default fallback (Warsaw)
-        let lon = 21.01;
+    // Location presets and state (Colijnsplaat default)
+    const LOCATION_PRESETS = {
+      colijnsplaat: { name: "Colijnsplaat, NL", lat: 51.59917, lon: 3.84861 },
+      kruiningen:   { name: "Kruiningen, NL",   lat: 51.45028, lon: 4.03222 },
+      goes:         { name: "Goes, NL",         lat: 51.50417, lon: 3.88889 },
+      zierikzee:    { name: "Zierikzee, NL",    lat: 51.64972, lon: 3.92139 },
+      gps:          { name: "Device GPS",       lat: 51.59917, lon: 3.84861 },
+      custom:       { name: "Custom Location",  lat: 51.59917, lon: 3.84861 }
+    };
 
-        if (navigator.geolocation) {
+    let activeLocation = {
+      key: "colijnsplaat",
+      name: "Colijnsplaat, NL",
+      lat: 51.59917,
+      lon: 3.84861
+    };
+
+    function loadSavedLocation() {
+      try {
+        const saved = localStorage.getItem("matrix_weather_loc");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.lat && parsed.lon) {
+            activeLocation = parsed;
+          }
+        }
+      } catch(e) {}
+      applyLocationToUI();
+    }
+
+    function applyLocationToUI() {
+      const select = document.getElementById("locationSelect");
+      const tag = document.getElementById("activeLocationTag");
+      const btn = document.getElementById("fetchWeatherBtn");
+      const customBox = document.getElementById("customCityContainer");
+
+      if (select) {
+        if (activeLocation.key && select.querySelector(`option[value="${activeLocation.key}"]`)) {
+          select.value = activeLocation.key;
+        } else {
+          select.value = "custom";
+        }
+      }
+      if (tag) tag.textContent = activeLocation.name || "Colijnsplaat, NL";
+      if (btn) btn.textContent = `🔄 Fetch ${activeLocation.name ? activeLocation.name.split(',')[0] : 'Colijnsplaat'} Weather`;
+      if (customBox) {
+        customBox.style.display = (select && select.value === "custom") ? "flex" : "none";
+      }
+    }
+
+    function onLocationSelectChange() {
+      const select = document.getElementById("locationSelect");
+      const val = select.value;
+      if (val === "custom") {
+        document.getElementById("customCityContainer").style.display = "flex";
+        document.getElementById("customCityInput").focus();
+        return;
+      }
+      document.getElementById("customCityContainer").style.display = "none";
+
+      if (LOCATION_PRESETS[val]) {
+        activeLocation = {
+          key: val,
+          name: LOCATION_PRESETS[val].name,
+          lat: LOCATION_PRESETS[val].lat,
+          lon: LOCATION_PRESETS[val].lon
+        };
+        try {
+          localStorage.setItem("matrix_weather_loc", JSON.stringify(activeLocation));
+        } catch(e) {}
+        applyLocationToUI();
+        showToast(`Location set: ${activeLocation.name}`);
+        fetchAndSendWeather();
+      }
+    }
+
+    async function searchCustomCity() {
+      const input = document.getElementById("customCityInput");
+      const query = input.value.trim();
+      if (!query) return;
+
+      showToast(`Searching for "${query}"…`);
+      try {
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          const loc = data.results[0];
+          activeLocation = {
+            key: "custom",
+            name: `${loc.name}, ${loc.country_code || ""}`,
+            lat: loc.latitude,
+            lon: loc.longitude
+          };
+          try {
+            localStorage.setItem("matrix_weather_loc", JSON.stringify(activeLocation));
+          } catch(e) {}
+          applyLocationToUI();
+          showToast(`Found: ${activeLocation.name}`);
+          fetchAndSendWeather();
+        } else {
+          showToast(`City "${query}" not found.`);
+        }
+      } catch(e) {
+        showToast("Search failed: " + e.message);
+      }
+    }
+
+    async function fetchAndSendWeather() {
+      showToast(`Fetching ${activeLocation.name} weather…`);
+      try {
+        let lat = activeLocation.lat;
+        let lon = activeLocation.lon;
+
+        if (activeLocation.key === "gps" && navigator.geolocation) {
           try {
             const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000 }));
             lat = pos.coords.latitude;
             lon = pos.coords.longitude;
+            document.getElementById("activeLocationTag").textContent = `GPS (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
           } catch(e) {
-            console.log("Using default coordinates");
+            console.log("GPS timed out or denied, using Colijnsplaat fallback");
+            lat = 51.59917;
+            lon = 3.84861;
           }
         }
 
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -1175,7 +1418,7 @@
 
         const ok = await sendPayload(payload);
         if (ok) {
-          showToast(`Weather sent: ${temp}°C ${weatherInfo.desc} • Dawn ${currentSunrise} ⚡`);
+          showToast(`Clock updated: ${temp}°C ${weatherInfo.desc} (${activeLocation.name}) ⚡`);
         }
       } catch (err) {
         console.error(err);
@@ -1195,9 +1438,38 @@
       }
     }
 
+    function checkCloudOta() {
+      showToast("Checking GitHub for updates via clock...");
+      sendPayload({ cmd: "checkUpdate" });
+    }
+
+    function startCloudOta() {
+      if (confirm("Start OTA Firmware Update?\n\nThe clock will connect to your phone hotspot, download firmware from GitHub Pages, show progress on the LED matrix, and reboot automatically.")) {
+        showToast("Starting OTA update... Watch clock matrix!");
+        sendPayload({ cmd: "startOta" });
+      }
+    }
+
+    async function fetchLatestGitHubVersion() {
+      try {
+        const res = await fetch("https://dymek84.github.io/esp32_matrix_clock_package/version.json?t=" + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          if (data.version) {
+            document.getElementById('remoteFwVersion').textContent = `v${data.version}`;
+          }
+        }
+      } catch (e) {
+        console.log("Could not fetch remote version from GitHub Pages:", e);
+      }
+    }
+
     // Initialize UI
+    loadSavedLocation();
     computeLocalSolarEstimate();
     renderAlarms();
+    setTimeout(fetchAndSendWeather, 500);
+    setTimeout(fetchLatestGitHubVersion, 1000);
   </script>
 </body>
 </html>

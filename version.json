@@ -1,0 +1,6 @@
+{
+  "version": "2.2.0",
+  "firmware_url": "https://dymek84.github.io/esp32_matrix_clock_package/firmware.bin",
+  "release_date": "2026-10-25",
+  "notes": "v2.2.0: 7 scheduled alarms (break starts & ends), continuous buzzer tone support, 1-30min weather display frequency (5 min default), 5-min hotspot auto-connect, and Cloud OTA auto-updater"
+}

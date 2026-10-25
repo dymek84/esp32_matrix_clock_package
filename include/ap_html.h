@@ -38,6 +38,7 @@ const char AP_HTML[] PROGMEM = R"HTML(<!doctype html>
         <label>Time <input name="time" type="time" id="time"></label>
         <label>Brightness (0–255)<input name="brightness" type="number" min="0" max="255" id="brightness" placeholder="Leave empty to keep current"></label>
         <label>Clock color <input name="color" type="color" id="color"></label>
+        <label>Weather display interval (1–30 min)<input name="weatherIntervalMin" type="number" min="1" max="30" id="weatherIntervalMin" placeholder="Default: 5 min"></label>
         <label><input name="blink" type="checkbox" id="blink"> Blink the colon each second</label>
       </section>
       <section>
@@ -65,6 +66,7 @@ const char AP_HTML[] PROGMEM = R"HTML(<!doctype html>
         $('time').value = s.time;
         $('brightness').value = s.brightness;
         $('color').value = s.color;
+        $('weatherIntervalMin').value = s.weatherIntervalMin || 5;
         $('blink').checked = s.blink;
         $('apSsid').value = s.apSsid;
         $('staSsid').value = s.staSsid;

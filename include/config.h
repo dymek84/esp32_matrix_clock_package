@@ -37,8 +37,10 @@
 #define I2C_SCL 19
 #define PCF8563_ADDRESS 0x51
 
-#define SETTINGS_MAGIC 0x4D434C4CUL // "MCLK"
+#define SETTINGS_MAGIC 0x4D434C33UL // "MCL3" (v2.2 settings schema)
 #define AP_CHANNEL 1
+#define MAX_ALARMS 7
+#define DEFAULT_WEATHER_INTERVAL_MIN 5
 
 // -----------------------------------------------------------------------------
 // Default WiFi & Display Settings
@@ -72,9 +74,16 @@
 // -----------------------------------------------------------------------------
 #define WEATHER_EXPIRATION_MS (2UL * 60UL * 60UL * 1000UL) // 2 hours (7,200,000 ms)
 #define WEATHER_AUTO_INTERVAL_MS (60UL * 60UL * 1000UL)     // 1 hour (3,600,000 ms)
-#define HOTSPOT_SEARCH_INTERVAL_MS (60UL * 1000UL)         // 1 minute (60,000 ms)
-#define DEFAULT_LATITUDE 52.23f
-#define DEFAULT_LONGITUDE 21.01f
+#define HOTSPOT_SEARCH_INTERVAL_MS (5UL * 60UL * 1000UL)    // 5 minutes (300,000 ms)
+#define DEFAULT_LATITUDE 51.599f    // Colijnsplaat, Zeeland, Netherlands
+#define DEFAULT_LONGITUDE 3.849f
+
+// -----------------------------------------------------------------------------
+// Cloud OTA Firmware Update Settings
+// -----------------------------------------------------------------------------
+#define FIRMWARE_VERSION "2.2.0"
+#define GITHUB_VERSION_URL "https://dymek84.github.io/esp32_matrix_clock_package/version.json"
+#define GITHUB_FIRMWARE_URL "https://dymek84.github.io/esp32_matrix_clock_package/firmware.bin"
 
 // -----------------------------------------------------------------------------
 // Data Structures
@@ -87,7 +96,7 @@ struct AlarmSetting {
   uint16_t textIntervalSec;
   char text[33];
   uint8_t beepCount;         // Amount of beeps per burst (1..10, default 2)
-  uint16_t beepIntervalMs;   // Time between beep bursts in ms (default 1000)
+  uint16_t beepIntervalMs;   // Time between beep bursts in ms (0 = continuous single long beep)
 };
 
 struct WeatherData {
@@ -113,5 +122,6 @@ struct DeviceSettings {
   char apPassword[65];
   char staSsid[33];
   char staPassword[65];
-  AlarmSetting alarms[4];
+  uint8_t weatherIntervalMin; // Periodic weather display on matrix (1..30 min, default 5)
+  AlarmSetting alarms[MAX_ALARMS];
 };

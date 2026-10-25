@@ -12,6 +12,7 @@
 #include "display.h"
 #include "rtc_ntp.h"
 #include "alarm_manager.h"
+#include "ota_updater.h"
 
 #define BLE_DEVICE_NAME "ESP32_Clock"
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"

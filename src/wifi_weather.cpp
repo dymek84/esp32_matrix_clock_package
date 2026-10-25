@@ -8,6 +8,7 @@
 #include "config_manager.h"
 #include "display.h"
 #include "rtc_ntp.h"
+#include "ota_updater.h"
 
 enum WifiWeatherState {
   WW_STATE_IDLE,
@@ -65,7 +66,8 @@ bool fetchAndDisplayWeather() {
   HTTPClient http;
   http.setTimeout(7000);
 
-  const String url = "http://api.open-meteo.com/v1/forecast?latitude=52.23&longitude=21.01&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto";
+  char url[256];
+  snprintf(url, sizeof(url), "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto", DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
   http.setUserAgent("ESP32-MatrixClock/2.0");
 
   if (!http.begin(client, url)) {
@@ -224,6 +226,14 @@ void processWifiWeatherTask() {
         } else {
           lastWeatherFetchMs = now - WEATHER_AUTO_INTERVAL_MS + (2UL * 60UL * 1000UL);
         }
+
+        // Check for Cloud OTA firmware updates from GitHub while connected to hotspot
+        OtaInfo ota;
+        if (checkForOtaUpdate(ota)) {
+          Serial.printf("[Hotspot OTA] Found new firmware v%s on GitHub! Updating...\n", ota.remoteVersion.c_str());
+          performOtaUpdate(ota.firmwareUrl);
+        }
+
         wwState = WW_STATE_IDLE;
         return;
       }

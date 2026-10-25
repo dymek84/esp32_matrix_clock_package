@@ -12,6 +12,7 @@
 #include "alarm_manager.h"
 #include "ble_manager.h"
 #include "wifi_weather.h"
+#include "ota_updater.h"
 
 WebServer server(80);
 static uint32_t lastFrameMs = 0;
@@ -47,10 +48,14 @@ void handleStatus() {
   json += "\"staSsid\":\"" + jsonEscape(settings.staSsid) + "\",";
   json += "\"apIp\":\"" + WiFi.softAPIP().toString() + "\",";
   json += "\"staIp\":\"" + (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "") + "\",";
+  json += "\"weatherIntervalMin\":" + String(settings.weatherIntervalMin) + ",";
+  json += "\"firmwareVersion\":\"" FIRMWARE_VERSION "\",";
+  json += "\"updateAvailable\":" + String(latestOtaInfo.updateAvailable ? "true" : "false") + ",";
+  json += "\"remoteVersion\":\"" + latestOtaInfo.remoteVersion + "\",";
   json += "\"hostname\":\"clock.local\",";
 
   json += "\"alarms\":[";
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < MAX_ALARMS; i++) {
     char alarmTimeStr[6];
     snprintf(alarmTimeStr, sizeof(alarmTimeStr), "%02d:%02d", settings.alarms[i].hour, settings.alarms[i].minute);
     json += "{\"id\":" + String(i + 1) + ",";
@@ -65,7 +70,7 @@ void handleStatus() {
     json += "\"interval\":" + String(settings.alarms[i].textIntervalSec) + ",";
     json += "\"textIntervalSec\":" + String(settings.alarms[i].textIntervalSec) + ",";
     json += "\"text\":\"" + jsonEscape(settings.alarms[i].text) + "\"}";
-    if (i < 3) json += ",";
+    if (i < MAX_ALARMS - 1) json += ",";
   }
   json += "]}";
 
@@ -161,6 +166,11 @@ void handleSave() {
     copyFormValue("staPassword", settings.staPassword, sizeof(settings.staPassword), true);
   }
 
+  // 7. Weather Display Interval (Optional: 1..30 min)
+  if (server.hasArg("weatherIntervalMin") && server.arg("weatherIntervalMin").length() > 0) {
+    settings.weatherIntervalMin = constrain(server.arg("weatherIntervalMin").toInt(), 1, 30);
+  }
+
   saveSettings();
   server.send(200, "text/html", "<meta name=\"viewport\" content=\"width=device-width\"><body style=\"font-family:system-ui;padding:24px\"><h1>Saved</h1><p>Settings saved successfully.</p><p><a href=\"/\">Return to settings</a></p></body>");
 
@@ -231,13 +241,22 @@ void startWebServer() {
   server.on("/api/testalarm", HTTP_GET, []() {
     if (server.hasArg("id")) {
       const int id = server.arg("id").toInt() - 1;
-      if (id >= 0 && id < 4) {
+      if (id >= 0 && id < MAX_ALARMS) {
         triggerAlarmTest(id);
         server.send(200, "text/plain", "Triggered alarm " + String(id + 1));
         return;
       }
     }
-    server.send(400, "text/plain", "Usage: /api/testalarm?id=1..4");
+    server.send(400, "text/plain", "Usage: /api/testalarm?id=1.." + String(MAX_ALARMS));
+  });
+  server.on("/api/weatherinterval", HTTP_GET, []() {
+    if (server.hasArg("min")) {
+      settings.weatherIntervalMin = constrain(server.arg("min").toInt(), 1, 30);
+      saveSettings();
+      server.send(200, "text/plain", "Weather interval set to " + String(settings.weatherIntervalMin) + " minutes");
+      return;
+    }
+    server.send(200, "text/plain", String(settings.weatherIntervalMin));
   });
   server.on("/api/testbuzzer", HTTP_GET, []() {
     triggerBuzzerTest(3000);
@@ -253,6 +272,25 @@ void startWebServer() {
     } else {
       server.send(500, "text/plain", "Failed to fetch weather. Check Wi-Fi connection.");
     }
+  });
+  server.on("/api/checkupdate", HTTP_GET, []() {
+    OtaInfo info;
+    const bool available = checkForOtaUpdate(info);
+    String resp = "{";
+    resp += "\"available\":" + String(available ? "true" : "false") + ",";
+    resp += "\"current\":\"" FIRMWARE_VERSION "\",";
+    resp += "\"remote\":\"" + info.remoteVersion + "\",";
+    resp += "\"notes\":\"" + jsonEscape(info.releaseNotes) + "\",";
+    resp += "\"url\":\"" + info.firmwareUrl + "\"}";
+    server.send(200, "application/json", resp);
+  });
+  server.on("/api/update", HTTP_GET, []() {
+    if (latestOtaInfo.firmwareUrl.length() == 0) {
+      checkForOtaUpdate(latestOtaInfo);
+    }
+    server.send(200, "text/plain", "Starting OTA Firmware Update from GitHub... Check Matrix LEDs for progress!");
+    delay(200);
+    performOtaUpdate(latestOtaInfo.firmwareUrl);
   });
   server.on("/save", HTTP_POST, handleSave);
   server.on("/restart", HTTP_POST, []() {
@@ -270,7 +308,7 @@ void startWebServer() {
 void setup() {
   Serial.begin(115200);
   delay(100);
-  Serial.println("\n--- ESP32 Matrix Clock v. 2.0 Starting ---");
+  Serial.println("\n--- ESP32 Matrix Clock v. " FIRMWARE_VERSION " Starting ---");
 
   loadSettings();
   Wire.begin(I2C_SDA, I2C_SCL);
@@ -280,6 +318,7 @@ void setup() {
   initialiseRtc();
   initAlarmManager();
   initBLE();
+  initOtaUpdater();
 
   const bool wifiConnected = connectWiFi(8000);
   startMDNS();
@@ -288,6 +327,12 @@ void setup() {
   if (wifiConnected) {
     syncNtpTime(5000);
     fetchAndDisplayWeather();
+    // Check for OTA updates on boot if connected
+    OtaInfo bootOta;
+    if (checkForOtaUpdate(bootOta)) {
+      Serial.printf("[Boot OTA] New firmware v%s found! Performing auto-update...\n", bootOta.remoteVersion.c_str());
+      performOtaUpdate(bootOta.firmwareUrl);
+    }
   } else {
     // No Wi-Fi available: fetch time from active hardware RTC
     if (readActiveClock(displayedTime)) {
@@ -304,7 +349,7 @@ void setup() {
   // 5-second random showcase animation to demonstrate matrix possibilities (3 variants)
   playStartupAnimation();
 
-  const String startupMsg = "Clock v. 2.0 ";
+  const String startupMsg = "Clock v. " FIRMWARE_VERSION " ";
   Serial.printf("Startup scroll: %s\n", startupMsg.c_str());
   scrollText(startupMsg, DEFAULT_SCROLL_SPEED_MS, CRGB(settings.red, settings.green, settings.blue), 2);
 
@@ -319,6 +364,7 @@ void loop() {
   updateBuzzer();
   processBLETask();
   processWifiWeatherTask();
+  checkOtaBackground();
   processPendingScroll();
   checkPeriodicWeatherDisplay();
 

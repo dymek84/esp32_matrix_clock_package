@@ -28,11 +28,23 @@ void setDefaultSettings() {
   strlcpy(settings.staSsid, DEFAULT_STA_SSID, sizeof(settings.staSsid));
   strlcpy(settings.staPassword, DEFAULT_STA_PASSWORD, sizeof(settings.staPassword));
 
-  // Initialize 4 default alarms (customizable lengths, beeps, intervals)
-  initAlarmField(settings.alarms[0], true, 9, 29, 60, 10, "Pause", 2, 1000);
-  initAlarmField(settings.alarms[1], true, 12, 29, 60, 10, "Pause", 2, 1000);
-  initAlarmField(settings.alarms[2], true, 14, 59, 30, 5, "Coffie", 3, 1500);
-  initAlarmField(settings.alarms[3], true, 15, 55, 300, 10, "Fininsh", 2, 1000);
+  settings.weatherIntervalMin = DEFAULT_WEATHER_INTERVAL_MIN;
+
+  // Initialize 7 default alarms:
+  // 1) 09:29 - Long break 1 starts (60s, 2 beeps)
+  // 2) 09:55 - Long break 1 ends (5s long beep)
+  // 3) 12:29 - Long break 2 starts (60s, 2 beeps)
+  // 4) 12:55 - Long break 2 ends (5s long beep)
+  // 5) 14:59 - Short break starts (30s, 3 beeps)
+  // 6) 15:10 - Short break ends (3s long beep)
+  // 7) 15:55 - Day finish (300s, 2 beeps)
+  initAlarmField(settings.alarms[0], true,  9, 29,  60, 10, "Pause",      2, 1000);
+  initAlarmField(settings.alarms[1], true,  9, 55,   5, 10, "End Pause",  1,    0);
+  initAlarmField(settings.alarms[2], true, 12, 29,  60, 10, "Pause",      2, 1000);
+  initAlarmField(settings.alarms[3], true, 12, 55,   5, 10, "End Pause",  1,    0);
+  initAlarmField(settings.alarms[4], true, 14, 59,  30,  5, "Coffie",     3, 1500);
+  initAlarmField(settings.alarms[5], true, 15, 10,   3,  5, "End Coffie", 1,    0);
+  initAlarmField(settings.alarms[6], true, 15, 55, 300, 10, "Fininsh",    2, 1000);
 }
 
 void loadSettings() {
@@ -47,12 +59,16 @@ void loadSettings() {
     setDefaultSettings();
   }
 
+  if (settings.weatherIntervalMin < 1 || settings.weatherIntervalMin > 30) {
+    settings.weatherIntervalMin = DEFAULT_WEATHER_INTERVAL_MIN;
+  }
+
   // Sanitize alarms to ensure valid beep counts and intervals
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < MAX_ALARMS; i++) {
     if (settings.alarms[i].beepCount == 0 || settings.alarms[i].beepCount > 10) {
-      settings.alarms[i].beepCount = DEFAULT_BEEP_COUNT;
+      settings.alarms[i].beepCount = 1;
     }
-    if (settings.alarms[i].beepIntervalMs < 100 || settings.alarms[i].beepIntervalMs > 10000) {
+    if (settings.alarms[i].beepIntervalMs > 10000) {
       settings.alarms[i].beepIntervalMs = DEFAULT_BEEP_INTERVAL_MS;
     }
     if (settings.alarms[i].durationSec == 0 || settings.alarms[i].durationSec > 3600) {

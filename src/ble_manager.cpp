@@ -107,6 +107,8 @@ void sendBLEStatus() {
   statusDoc["time"] = timeStr;
   statusDoc["brightness"] = settings.brightness;
   statusDoc["color"] = colorHex;
+  statusDoc["weatherIntervalMin"] = settings.weatherIntervalMin;
+  statusDoc["firmwareVersion"] = FIRMWARE_VERSION;
   statusDoc["blink"] = settings.blinkColon;
   statusDoc["source"] = getActiveClockSource();
 
@@ -116,11 +118,11 @@ void sendBLEStatus() {
   delay(50);
 
   // Packet 2: Alarms list with individual lengths and buzzer cadences
-  StaticJsonDocument<768> alarmsDoc;
+  StaticJsonDocument<1536> alarmsDoc;
   alarmsDoc["type"] = "alarms";
   JsonArray array = alarmsDoc.createNestedArray("alarms");
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < MAX_ALARMS; i++) {
     JsonObject aObj = array.createNestedObject();
     aObj["id"] = i + 1;
     aObj["en"] = settings.alarms[i].enabled;
@@ -162,7 +164,7 @@ void processIncomingJson(const String &jsonPayload) {
       return;
     } else if (cmd == "testAlarm") {
       const uint8_t id = doc.containsKey("id") ? doc["id"].as<uint8_t>() : 1;
-      if (id >= 1 && id <= 4) {
+      if (id >= 1 && id <= MAX_ALARMS) {
         triggerAlarmTest(id - 1);
         sendBLENotification("{\"status\":\"ok\",\"message\":\"Alarm test triggered\"}");
       }
@@ -185,6 +187,17 @@ void processIncomingJson(const String &jsonPayload) {
       const uint32_t duration = doc.containsKey("duration") ? doc["duration"].as<uint32_t>() : 5000;
       runAnimationVariant(variant, duration);
       sendBLENotification("{\"status\":\"ok\",\"message\":\"Animation completed\"}");
+      return;
+    } else if (cmd == "checkUpdate") {
+      OtaInfo info;
+      const bool avail = checkForOtaUpdate(info);
+      String resp = "{\"type\":\"otaStatus\",\"available\":" + String(avail ? "true" : "false") +
+                    ",\"version\":\"" FIRMWARE_VERSION "\",\"remote\":\"" + info.remoteVersion + "\",\"notes\":\"" + info.releaseNotes + "\"}";
+      sendBLENotification(resp);
+      return;
+    } else if (cmd == "startOta" || cmd == "updateFirmware") {
+      sendBLENotification("{\"status\":\"ok\",\"message\":\"OTA Update initiated... Watch matrix!\"}");
+      performOtaUpdate(latestOtaInfo.firmwareUrl);
       return;
     }
   }
@@ -308,13 +321,24 @@ void processIncomingJson(const String &jsonPayload) {
     sendBLENotification("{\"status\":\"ok\",\"message\":\"Weather updated with dynamic dawn/dusk\"}");
   }
 
-  // 7. Alarms Configuration Array ("alarms": [...])
+  // 7. Weather Display Interval on Matrix (1..30 min)
+  if (doc.containsKey("weatherIntervalMin")) {
+    settings.weatherIntervalMin = constrain(doc["weatherIntervalMin"].as<uint8_t>(), 1, 30);
+    settingsChanged = true;
+    Serial.printf("[BLE] Updated weatherIntervalMin: %d min\n", settings.weatherIntervalMin);
+  } else if (doc.containsKey("weatherInterval")) {
+    settings.weatherIntervalMin = constrain(doc["weatherInterval"].as<uint8_t>(), 1, 30);
+    settingsChanged = true;
+    Serial.printf("[BLE] Updated weatherIntervalMin: %d min\n", settings.weatherIntervalMin);
+  }
+
+  // 8. Alarms Configuration Array ("alarms": [...])
   if (doc["alarms"].is<JsonArray>()) {
     JsonArray alarmArray = doc["alarms"].as<JsonArray>();
     for (JsonObject aObj : alarmArray) {
       uint8_t id = 0;
       if (aObj.containsKey("id")) id = aObj["id"].as<uint8_t>();
-      if (id < 1 || id > 4) continue;
+      if (id < 1 || id > MAX_ALARMS) continue;
       const uint8_t idx = id - 1;
 
       if (aObj.containsKey("enabled")) settings.alarms[idx].enabled = aObj["enabled"].as<bool>();
@@ -324,19 +348,19 @@ void processIncomingJson(const String &jsonPayload) {
       if (aObj.containsKey("minute")) settings.alarms[idx].minute = constrain(aObj["minute"].as<uint8_t>(), 0, 59);
       if (aObj.containsKey("m")) settings.alarms[idx].minute = constrain(aObj["m"].as<uint8_t>(), 0, 59);
 
-      // Alarm duration / length
-      if (aObj.containsKey("durationSec")) settings.alarms[idx].durationSec = constrain(aObj["durationSec"].as<uint16_t>(), 5, 3600);
-      if (aObj.containsKey("length")) settings.alarms[idx].durationSec = constrain(aObj["length"].as<uint16_t>(), 5, 3600);
-      if (aObj.containsKey("dur")) settings.alarms[idx].durationSec = constrain(aObj["dur"].as<uint16_t>(), 5, 3600);
+      // Alarm duration / length (1 to 3600 seconds)
+      if (aObj.containsKey("durationSec")) settings.alarms[idx].durationSec = constrain(aObj["durationSec"].as<uint16_t>(), 1, 3600);
+      if (aObj.containsKey("length")) settings.alarms[idx].durationSec = constrain(aObj["length"].as<uint16_t>(), 1, 3600);
+      if (aObj.containsKey("dur")) settings.alarms[idx].durationSec = constrain(aObj["dur"].as<uint16_t>(), 1, 3600);
 
-      // Beeps amount
+      // Beeps amount (1 to 10)
       if (aObj.containsKey("beepCount")) settings.alarms[idx].beepCount = constrain(aObj["beepCount"].as<uint8_t>(), 1, 10);
       if (aObj.containsKey("beeps")) settings.alarms[idx].beepCount = constrain(aObj["beeps"].as<uint8_t>(), 1, 10);
 
-      // Time between beeps
-      if (aObj.containsKey("beepIntervalMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["beepIntervalMs"].as<uint16_t>(), 100, 10000);
-      if (aObj.containsKey("pause")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pause"].as<uint16_t>(), 100, 10000);
-      if (aObj.containsKey("pauseMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pauseMs"].as<uint16_t>(), 100, 10000);
+      // Time between beeps (0 = continuous single tone for duration, up to 10000ms pause)
+      if (aObj.containsKey("beepIntervalMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["beepIntervalMs"].as<uint16_t>(), 0, 10000);
+      if (aObj.containsKey("pause")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pause"].as<uint16_t>(), 0, 10000);
+      if (aObj.containsKey("pauseMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pauseMs"].as<uint16_t>(), 0, 10000);
 
       // Banner text interval & text
       if (aObj.containsKey("textIntervalSec")) settings.alarms[idx].textIntervalSec = aObj["textIntervalSec"].as<uint16_t>();
@@ -353,12 +377,12 @@ void processIncomingJson(const String &jsonPayload) {
     }
   }
 
-  // 7. Single Alarm Configuration Object ("alarm": {...})
+  // 9. Single Alarm Configuration Object ("alarm": {...})
   if (doc["alarm"].is<JsonObject>()) {
     JsonObject aObj = doc["alarm"].as<JsonObject>();
     uint8_t id = 1;
     if (aObj.containsKey("id")) id = aObj["id"].as<uint8_t>();
-    if (id >= 1 && id <= 4) {
+    if (id >= 1 && id <= MAX_ALARMS) {
       const uint8_t idx = id - 1;
       if (aObj.containsKey("enabled")) settings.alarms[idx].enabled = aObj["enabled"].as<bool>();
       if (aObj.containsKey("en")) settings.alarms[idx].enabled = aObj["en"].as<bool>();
@@ -368,18 +392,18 @@ void processIncomingJson(const String &jsonPayload) {
       if (aObj.containsKey("m")) settings.alarms[idx].minute = constrain(aObj["m"].as<uint8_t>(), 0, 59);
 
       // Alarm duration / length
-      if (aObj.containsKey("durationSec")) settings.alarms[idx].durationSec = constrain(aObj["durationSec"].as<uint16_t>(), 5, 3600);
-      if (aObj.containsKey("length")) settings.alarms[idx].durationSec = constrain(aObj["length"].as<uint16_t>(), 5, 3600);
-      if (aObj.containsKey("dur")) settings.alarms[idx].durationSec = constrain(aObj["dur"].as<uint16_t>(), 5, 3600);
+      if (aObj.containsKey("durationSec")) settings.alarms[idx].durationSec = constrain(aObj["durationSec"].as<uint16_t>(), 1, 3600);
+      if (aObj.containsKey("length")) settings.alarms[idx].durationSec = constrain(aObj["length"].as<uint16_t>(), 1, 3600);
+      if (aObj.containsKey("dur")) settings.alarms[idx].durationSec = constrain(aObj["dur"].as<uint16_t>(), 1, 3600);
 
       // Beeps amount
       if (aObj.containsKey("beepCount")) settings.alarms[idx].beepCount = constrain(aObj["beepCount"].as<uint8_t>(), 1, 10);
       if (aObj.containsKey("beeps")) settings.alarms[idx].beepCount = constrain(aObj["beeps"].as<uint8_t>(), 1, 10);
 
       // Time between beeps
-      if (aObj.containsKey("beepIntervalMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["beepIntervalMs"].as<uint16_t>(), 100, 10000);
-      if (aObj.containsKey("pause")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pause"].as<uint16_t>(), 100, 10000);
-      if (aObj.containsKey("pauseMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pauseMs"].as<uint16_t>(), 100, 10000);
+      if (aObj.containsKey("beepIntervalMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["beepIntervalMs"].as<uint16_t>(), 0, 10000);
+      if (aObj.containsKey("pause")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pause"].as<uint16_t>(), 0, 10000);
+      if (aObj.containsKey("pauseMs")) settings.alarms[idx].beepIntervalMs = constrain(aObj["pauseMs"].as<uint16_t>(), 0, 10000);
 
       // Banner text interval & text
       if (aObj.containsKey("textIntervalSec")) settings.alarms[idx].textIntervalSec = aObj["textIntervalSec"].as<uint16_t>();
@@ -396,7 +420,7 @@ void processIncomingJson(const String &jsonPayload) {
     }
   }
 
-  // 8. Custom Scrolling Text Banner (Queued safely to main loop to prevent collision with clock digits)
+  // 10. Custom Scrolling Text Banner (Queued safely to main loop to prevent collision with clock digits)
   if (doc.containsKey("text") && !doc.containsKey("alarms") && !doc.containsKey("alarm")) {
     const String textStr = doc["text"].as<String>();
     Serial.printf("[BLE] Queueing scroll text banner: '%s'\n", textStr.c_str());

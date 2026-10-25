@@ -613,8 +613,12 @@ void checkPeriodicWeatherDisplay() {
   }
   if (activeAlarmIndex >= 0 || isTextScrolling) return;
 
-  // Periodically show weather screen every 15 minutes
-  if (millis() - lastWeatherScrollMs >= 900000UL) {
+  // Periodically show weather screen (configurable 1..30 min, default 5 min)
+  const uint32_t intervalMin = (settings.weatherIntervalMin >= 1 && settings.weatherIntervalMin <= 30)
+                                ? settings.weatherIntervalMin : DEFAULT_WEATHER_INTERVAL_MIN;
+  const uint32_t intervalMs = intervalMin * 60000UL;
+
+  if (millis() - lastWeatherScrollMs >= intervalMs) {
     lastWeatherScrollMs = millis();
     showWeatherScreen(7000);
   }

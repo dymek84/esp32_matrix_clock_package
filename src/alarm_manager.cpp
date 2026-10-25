@@ -3,7 +3,7 @@
 int activeAlarmIndex = -1;
 static uint32_t alarmStartMs = 0;
 static uint32_t lastTextScrollMs = 0;
-static int lastTriggeredMinute[4] = {-1, -1, -1, -1};
+static int lastTriggeredMinute[MAX_ALARMS];
 
 static uint32_t buzzerTestEndMs = 0;
 static uint32_t singleBeepEndMs = 0;
@@ -16,7 +16,7 @@ void initAlarmManager() {
   buzzerTestEndMs = 0;
   singleBeepEndMs = 0;
   lastChimedHour = -1;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < MAX_ALARMS; i++) {
     lastTriggeredMinute[i] = -1;
   }
   initBuzzer();
@@ -57,8 +57,15 @@ void updateBuzzer() {
   const bool isBuzzerTesting = (millis() < buzzerTestEndMs);
   const bool isSingleBeep = (millis() < singleBeepEndMs);
 
-  if (activeAlarmIndex >= 0 && activeAlarmIndex < 4) {
+  if (activeAlarmIndex >= 0 && activeAlarmIndex < MAX_ALARMS) {
     const AlarmSetting &alarm = settings.alarms[activeAlarmIndex];
+
+    // Continuous tone: if beepIntervalMs is 0, sound buzzer continuously for full duration
+    if (alarm.beepIntervalMs == 0) {
+      digitalWrite(BUZZER_PIN, HIGH);
+      return;
+    }
+
     const uint8_t beeps = (alarm.beepCount > 0 && alarm.beepCount <= 10) ? alarm.beepCount : DEFAULT_BEEP_COUNT;
     const uint16_t pauseMs = (alarm.beepIntervalMs >= 100 && alarm.beepIntervalMs <= 10000) ? alarm.beepIntervalMs : DEFAULT_BEEP_INTERVAL_MS;
 
@@ -94,7 +101,7 @@ void updateBuzzer() {
 }
 
 void triggerAlarmTest(uint8_t alarmIndex) {
-  if (alarmIndex >= 4) return;
+  if (alarmIndex >= MAX_ALARMS) return;
   activeAlarmIndex = alarmIndex;
   alarmStartMs = millis();
   const uint16_t interval = settings.alarms[alarmIndex].textIntervalSec > 0 ? settings.alarms[alarmIndex].textIntervalSec : 10;
@@ -130,7 +137,7 @@ void checkAndRunAlarms(bool clockIsValid, const DateTime &now) {
 
   // 2. Check if any scheduled alarm should trigger
   if (activeAlarmIndex == -1) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < MAX_ALARMS; i++) {
       const AlarmSetting &alarm = settings.alarms[i];
       if (alarm.enabled && curHour == alarm.hour && curMin == alarm.minute) {
         if (lastTriggeredMinute[i] != curMin) {
@@ -152,7 +159,7 @@ void checkAndRunAlarms(bool clockIsValid, const DateTime &now) {
   }
 
   // 2. Process currently active alarm
-  if (activeAlarmIndex >= 0 && activeAlarmIndex < 4) {
+  if (activeAlarmIndex >= 0 && activeAlarmIndex < MAX_ALARMS) {
     const AlarmSetting &alarm = settings.alarms[activeAlarmIndex];
     const uint32_t elapsedMs = millis() - alarmStartMs;
 
