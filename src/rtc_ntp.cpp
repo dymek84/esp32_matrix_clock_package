@@ -318,7 +318,7 @@ bool syncNtpTime(uint32_t timeoutMs) {
   }
 
   Serial.println("[NTP Debug] Syncing time via NTP...");
-  configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER_1, NTP_SERVER_2);
+  configTzTime(NTP_TIMEZONE, NTP_SERVER_1, NTP_SERVER_2);
 
   struct tm timeinfo;
   const uint32_t startMs = millis();

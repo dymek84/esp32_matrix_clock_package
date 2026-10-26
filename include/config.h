@@ -66,8 +66,13 @@
 // -----------------------------------------------------------------------------
 #define NTP_SERVER_1 "pool.ntp.org"
 #define NTP_SERVER_2 "time.nist.gov"
+// Central European Time (CET/CEST) with automatic Daylight Saving Time switching:
+// CET = UTC+1 (standard / winter time)
+// CEST = UTC+2 (daylight saving / summer time, from last Sunday of March to last Sunday of October)
+#define NTP_TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"
 #define GMT_OFFSET_SEC 3600
-#define DAYLIGHT_OFFSET_SEC 3600
+#define DAYLIGHT_OFFSET_SEC 0
+
 
 // -----------------------------------------------------------------------------
 // Weather Settings & Expiration Timeout
@@ -81,7 +86,7 @@
 // -----------------------------------------------------------------------------
 // Cloud OTA Firmware Update Settings
 // -----------------------------------------------------------------------------
-#define FIRMWARE_VERSION "2.2.0"
+#define FIRMWARE_VERSION "2.2.1"
 #define GITHUB_VERSION_URL "https://dymek84.github.io/esp32_matrix_clock_package/version.json"
 #define GITHUB_FIRMWARE_URL "https://dymek84.github.io/esp32_matrix_clock_package/firmware.bin"
 

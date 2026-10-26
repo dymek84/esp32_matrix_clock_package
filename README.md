@@ -1,4 +1,4 @@
-# LOLIN32 Lite Matrix Clock v2.2.0
+# LOLIN32 Lite Matrix Clock v2.2.1
 
 An advanced **48 × 16 RGB LED Matrix Clock, Weather Station, Cloud OTA System, and Smart Alarm Manager** built for the LOLIN32 Lite (ESP32). Features triple-output WS2812B display mapping, dual redundant hardware RTCs (DS3231 + PCF8563), automated NTP internet time sync, Open-Meteo live weather with high-contrast 16×16 pixel icons (Colijnsplaat, NL), automated GitHub Cloud OTA updates, phone hotspot background scanning, Bluetooth Low Energy (BLE) mobile controls, customizable 7-alarm break manager with continuous tone signals, hourly chimes, and an onboard web dashboard with mDNS and REST APIs.
 
@@ -177,7 +177,7 @@ esp32_matrix_clock_package/
 │   ├── rtc_ntp.cpp          # DS3231 / PCF8563 / NTP logic and timekeeping
 │   └── wifi_weather.cpp     # Open-Meteo client, 5-minute hotspot scan, WMO codes
 ├── platformio.ini           # PlatformIO project configuration with min_spiffs.csv OTA partition
-├── firmware.bin             # Pre-compiled ready-to-flash binary (v2.2.0)
+├── firmware.bin             # Pre-compiled ready-to-flash binary (v2.2.1)
 ├── version.json             # GitHub Pages cloud version metadata for automated updates
 ├── ble_clock_app.html       # Offline Web Bluetooth control client with Cloud OTA card
 ├── matrix_clock_simulator.html # Browser-based 48x16 matrix simulator

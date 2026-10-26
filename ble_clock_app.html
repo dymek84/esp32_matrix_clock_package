@@ -626,7 +626,7 @@
     <div style="background:#0d1117; padding:12px 16px; border-radius:8px; margin-bottom:12px; border:1px solid #30363d;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
         <span style="font-size:0.85rem; color:var(--text-muted);">Current Firmware on Clock:</span>
-        <span id="clockFwVersion" style="font-family:var(--font-mono); font-weight:700; color:#58a6ff;">v2.2.0</span>
+        <span id="clockFwVersion" style="font-family:var(--font-mono); font-weight:700; color:#58a6ff;">v2.2.1</span>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
         <span style="font-size:0.85rem; color:var(--text-muted);">Latest on GitHub:</span>
@@ -931,7 +931,7 @@
             document.getElementById('clockFwVersion').textContent = `v${msg.firmwareVersion}`;
           }
         } else if (msg.type === "otaStatus") {
-          document.getElementById('clockFwVersion').textContent = `v${msg.version || '2.2.0'}`;
+          document.getElementById('clockFwVersion').textContent = `v${msg.version || '2.2.1'}`;
           document.getElementById('remoteFwVersion').textContent = msg.remote ? `v${msg.remote}` : 'Up to date';
           const badge = document.getElementById('otaStatusBadge');
           const notesBox = document.getElementById('otaNotesContainer');
