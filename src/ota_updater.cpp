@@ -1,5 +1,6 @@
 #include "ota_updater.h"
 #include "display.h"
+#include <BLEDevice.h>
 
 OtaInfo latestOtaInfo = { false, FIRMWARE_VERSION, "", "", "" };
 bool isOtaUpdating = false;
@@ -125,12 +126,18 @@ bool performOtaUpdate(const String &url) {
   snprintf(otaMsg, sizeof(otaMsg), "OTA Update: v%s", latestOtaInfo.remoteVersion.length() > 0 ? latestOtaInfo.remoteVersion.c_str() : "New");
   scrollText(otaMsg, 4, CRGB::Yellow);
 
+  // Free ~80 KB of RAM by shutting down BLE stack during OTA update
+  Serial.printf("[OTA] Free heap before BLE release: %u bytes\n", ESP.getFreeHeap());
+  BLEDevice::deinit(true);
+  delay(100);
+  Serial.printf("[OTA] Free heap after BLE release: %u bytes\n", ESP.getFreeHeap());
+
   WiFiClientSecure client;
   client.setInsecure();
 
   HTTPClient http;
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  http.setTimeout(25000); // 25s timeout for downloading binary
+  http.setTimeout(30000); // 30s timeout for downloading binary
   http.setUserAgent("ESP32-MatrixClock-OTA/" FIRMWARE_VERSION);
 
   if (!http.begin(client, targetUrl)) {
@@ -142,12 +149,14 @@ bool performOtaUpdate(const String &url) {
 
   const int httpCode = http.GET();
   if (httpCode != HTTP_CODE_OK) {
-    Serial.printf("[OTA] Download HTTP GET failed, code: %d\n", httpCode);
+    Serial.printf("[OTA] Download HTTP GET failed, code: %d (%s), free heap: %u\n",
+                  httpCode, http.errorToString(httpCode).c_str(), ESP.getFreeHeap());
     http.end();
     scrollText("OTA Failed: HTTP Error", 5, CRGB::Red);
     isOtaUpdating = false;
     return false;
   }
+
 
   const int contentLength = http.getSize();
   if (contentLength <= 0) {

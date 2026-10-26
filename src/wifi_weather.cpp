@@ -67,7 +67,7 @@ bool fetchAndDisplayWeather() {
   http.setTimeout(7000);
 
   char url[256];
-  snprintf(url, sizeof(url), "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto", DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+  snprintf(url, sizeof(url), "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,relative_humidity_2m,pressure_msl,surface_pressure,wind_speed_10m,weather_code,is_day&daily=sunrise,sunset&timezone=auto", DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
   http.setUserAgent("ESP32-MatrixClock/2.0");
 
   if (!http.begin(client, url)) {
@@ -94,6 +94,11 @@ bool fetchAndDisplayWeather() {
 
   float tempF = doc["current"]["temperature_2m"] | 0.0f;
   int16_t temp = (int16_t)round(tempF);
+  float pressF = doc["current"]["pressure_msl"] | doc["current"]["surface_pressure"] | 1013.0f;
+  int16_t pressure = (int16_t)round(pressF);
+  uint8_t humidity = doc["current"]["relative_humidity_2m"] | 0;
+  float windF = doc["current"]["wind_speed_10m"] | 0.0f;
+  uint8_t windSpeed = (uint8_t)round(windF);
   int wCode = doc["current"]["weather_code"] | 0;
   const char* desc = getWeatherDescFromWmo(wCode);
 
@@ -126,12 +131,13 @@ bool fetchAndDisplayWeather() {
     }
   }
 
-  Serial.printf("[AutoWeather] Fetched: %d°C '%s' (Dawn %02d:%02d, Dusk %02d:%02d)\n",
-                temp, desc, riseH, riseM, setH, setM);
+  Serial.printf("[AutoWeather] Fetched: %d°C, %d hPa, %d%% Hum, %d km/h '%s' (Dawn %02d:%02d, Dusk %02d:%02d)\n",
+                temp, pressure, humidity, windSpeed, desc, riseH, riseM, setH, setM);
 
   // Update weather and activate 16x16 icon + text screen on matrix
-  updateWeather(temp, desc, riseH, riseM, setH, setM);
+  updateWeather(temp, pressure, humidity, windSpeed, desc, riseH, riseM, setH, setM);
   return true;
+
 }
 
 void initWifiWeather() {

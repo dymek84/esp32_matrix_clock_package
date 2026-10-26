@@ -1366,11 +1366,14 @@
           }
         }
 
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,pressure_msl,surface_pressure,wind_speed_10m,weather_code,is_day&daily=sunrise,sunset&timezone=auto`;
         const res = await fetch(url);
         const data = await res.json();
 
         const temp = Math.round(data.current.temperature_2m);
+        const pressure = Math.round(data.current.pressure_msl || data.current.surface_pressure || 1013);
+        const humidity = data.current.relative_humidity_2m || 0;
+        const wind = Math.round(data.current.wind_speed_10m || 0);
         const weatherInfo = decodeWmoWeather(data.current.weather_code);
         const isDay = data.current.is_day !== undefined ? data.current.is_day : 1;
 
@@ -1387,7 +1390,7 @@
         document.getElementById('weatherTempInput').value = temp;
         document.getElementById('weatherTempDisplay').textContent = `${temp}°C`;
         document.getElementById('weatherIcon').textContent = weatherInfo.icon;
-        document.getElementById('weatherDisplay').textContent = `${temp}°C ${weatherInfo.desc}`;
+        document.getElementById('weatherDisplay').textContent = `${temp}°C | ${pressure} hPa | ${humidity}% Hum | ${weatherInfo.desc}`;
         document.getElementById('solarTimesDisplay').textContent = `🌅 Dawn: ${currentSunrise} | 🌇 Dusk: ${currentSunset} • ${isDay ? "☀️ Day" : "🌙 Night"}`;
 
         // Select matching option in dropdown if present
@@ -1405,6 +1408,9 @@
         const payload = {
           weather: {
             temp: temp,
+            pressure: pressure,
+            humidity: humidity,
+            wind: wind,
             desc: weatherInfo.desc,
             isDay: isDay,
             sunrise: currentSunrise,
@@ -1415,6 +1421,7 @@
             time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
           }
         };
+
 
         const ok = await sendPayload(payload);
         if (ok) {

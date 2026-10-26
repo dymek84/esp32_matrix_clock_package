@@ -30,8 +30,10 @@ int16_t getTextWidth(const String &text, uint8_t scale = 2);
 void scrollText(const String &text, uint16_t speedMs = DEFAULT_SCROLL_SPEED_MS, const CRGB &color = CRGB::White, uint8_t scale = 2);
 void queueScrollText(const String &text);
 void processPendingScroll();
+void updateWeather(int16_t temp, int16_t pressure, uint8_t humidity, uint8_t windSpeed, const char* desc, uint8_t sunriseH = 255, uint8_t sunriseM = 0, uint8_t sunsetH = 255, uint8_t sunsetM = 0);
 void updateWeather(int16_t temp, const char* desc, uint8_t sunriseH = 255, uint8_t sunriseM = 0, uint8_t sunsetH = 255, uint8_t sunsetM = 0);
 bool isDayTime(const DateTime &displayedTime);
+
 void calculateSolarDawnDusk(const DateTime &dt, uint8_t &riseH, uint8_t &riseM, uint8_t &setH, uint8_t &setM);
 void checkPeriodicWeatherDisplay();
 void drawIcon16x16(int16_t startX, int16_t startY, const uint32_t* iconData);

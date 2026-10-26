@@ -553,24 +553,25 @@ void renderWeatherScreen(const DateTime &displayedTime) {
   const CRGB clockColor(settings.red, settings.green, settings.blue);
   drawText(tempStr, tempX, 1, clockColor, 1);
 
-  // Bottom row (y: 9): Description text
-  const String descStr = String(currentWeather.desc);
-  const int16_t descWidth = getTextWidth(descStr, 1);
+  // Bottom row (y: 9): Smooth scrolling weather ticker
+  const String tickerStr = (strlen(currentWeather.scrollTicker) > 0) ? String(currentWeather.scrollTicker) : String(currentWeather.desc);
+  const int16_t tickerWidth = getTextWidth(tickerStr, 1);
 
-  if (descWidth <= 32) {
-    const int16_t descX = 16 + (32 - descWidth) / 2;
-    drawText(descStr, descX, 9, CRGB::White, 1);
+  if (tickerWidth <= 32) {
+    const int16_t descX = 16 + (32 - tickerWidth) / 2;
+    drawText(tickerStr, descX, 9, CRGB::White, 1);
   } else {
     // Smooth marquee scroll in the right 32-pixel window (x: 16..47)
-    const uint32_t scrollTime = millis() / 65;
-    const int16_t totalRange = descWidth + 14;
+    // Speed: 50ms per pixel
+    const uint32_t scrollTime = millis() / 50;
+    const int16_t totalRange = tickerWidth + 18;
     const int16_t offset = scrollTime % totalRange;
     const int16_t descX = 47 - offset;
 
-    for (size_t i = 0; i < descStr.length(); i++) {
+    for (size_t i = 0; i < tickerStr.length(); i++) {
       const int16_t charX = descX + (i * 6);
       if (charX + 5 >= 16 && charX < 48) {
-        drawCharClipped(descStr[i], charX, 9, CRGB::White, 16, 47);
+        drawCharClipped(tickerStr[i], charX, 9, CRGB::White, 16, 47);
       }
     }
   }
@@ -579,14 +580,32 @@ void renderWeatherScreen(const DateTime &displayedTime) {
   FastLED.show();
 }
 
-WeatherData currentWeather = { false, 0, "", 0, false, 7, 0, 18, 0 };
+WeatherData currentWeather = { false, 0, 0, 0, 0, "", "", 0, false, 7, 0, 18, 0 };
 static uint32_t lastWeatherScrollMs = 0;
 
-void updateWeather(int16_t temp, const char* desc, uint8_t sunriseH, uint8_t sunriseM, uint8_t sunsetH, uint8_t sunsetM) {
+void updateWeather(int16_t temp, int16_t pressure, uint8_t humidity, uint8_t windSpeed, const char* desc, uint8_t sunriseH, uint8_t sunriseM, uint8_t sunsetH, uint8_t sunsetM) {
   currentWeather.valid = true;
   currentWeather.temp = temp;
+  currentWeather.pressure = pressure;
+  currentWeather.humidity = humidity;
+  currentWeather.windSpeed = windSpeed;
   strlcpy(currentWeather.desc, desc ? desc : "", sizeof(currentWeather.desc));
   currentWeather.lastUpdateEpoch = millis();
+
+  // Format rich scrolling ticker: "1014 hPa | 83% Hum | 22 km/h | Overcast"
+  if (pressure > 0 && humidity > 0) {
+    if (windSpeed > 0) {
+      snprintf(currentWeather.scrollTicker, sizeof(currentWeather.scrollTicker),
+               "%d hPa | %d%% Hum | %d km/h | %s",
+               pressure, humidity, windSpeed, currentWeather.desc);
+    } else {
+      snprintf(currentWeather.scrollTicker, sizeof(currentWeather.scrollTicker),
+               "%d hPa | %d%% Hum | %s",
+               pressure, humidity, currentWeather.desc);
+    }
+  } else {
+    strlcpy(currentWeather.scrollTicker, currentWeather.desc, sizeof(currentWeather.scrollTicker));
+  }
 
   if (sunriseH <= 23 && sunsetH <= 23) {
     currentWeather.hasDawnDusk = true;
@@ -598,10 +617,15 @@ void updateWeather(int16_t temp, const char* desc, uint8_t sunriseH, uint8_t sun
                   sunriseH, sunriseM, sunsetH, sunsetM);
   }
 
-  // Activate the weather screen with icon for 8 seconds
-  showWeatherScreen(8000);
+  // Activate the weather screen with icon for 12 seconds to allow the ticker to scroll
+  showWeatherScreen(12000);
   lastWeatherScrollMs = millis();
-  Serial.printf("[Weather] Received: %dC '%s' -> Displaying weather screen with icon\n", temp, currentWeather.desc);
+  Serial.printf("[Weather] Received: %dC, %d hPa, %d%%, %d km/h '%s' -> Displaying ticker: %s\n",
+                temp, pressure, humidity, windSpeed, currentWeather.desc, currentWeather.scrollTicker);
+}
+
+void updateWeather(int16_t temp, const char* desc, uint8_t sunriseH, uint8_t sunriseM, uint8_t sunsetH, uint8_t sunsetM) {
+  updateWeather(temp, 0, 0, 0, desc, sunriseH, sunriseM, sunsetH, sunsetM);
 }
 
 void checkPeriodicWeatherDisplay() {
@@ -620,7 +644,7 @@ void checkPeriodicWeatherDisplay() {
 
   if (millis() - lastWeatherScrollMs >= intervalMs) {
     lastWeatherScrollMs = millis();
-    showWeatherScreen(7000);
+    showWeatherScreen(12000);
   }
 }
 

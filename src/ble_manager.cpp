@@ -278,6 +278,9 @@ void processIncomingJson(const String &jsonPayload) {
   // 6. Weather Forecast Update
   if (doc.containsKey("weather") || doc.containsKey("temp")) {
     int16_t temperature = 0;
+    int16_t pressure = 0;
+    uint8_t humidity = 0;
+    uint8_t windSpeed = 0;
     const char* description = "";
     uint8_t sunriseH = 255, sunriseM = 0, sunsetH = 255, sunsetM = 0;
 
@@ -285,6 +288,9 @@ void processIncomingJson(const String &jsonPayload) {
       JsonObject wObj = doc["weather"].as<JsonObject>();
       if (wObj.containsKey("temp")) temperature = wObj["temp"].as<int16_t>();
       if (wObj.containsKey("temperature")) temperature = wObj["temperature"].as<int16_t>();
+      if (wObj.containsKey("pressure")) pressure = wObj["pressure"].as<int16_t>();
+      if (wObj.containsKey("humidity")) humidity = wObj["humidity"].as<uint8_t>();
+      if (wObj.containsKey("wind")) windSpeed = wObj["wind"].as<uint8_t>();
       if (wObj.containsKey("desc")) description = wObj["desc"].as<const char*>();
       if (wObj.containsKey("description")) description = wObj["description"].as<const char*>();
       if (wObj.containsKey("condition")) description = wObj["condition"].as<const char*>();
@@ -301,6 +307,9 @@ void processIncomingJson(const String &jsonPayload) {
       }
     } else {
       if (doc.containsKey("temp")) temperature = doc["temp"].as<int16_t>();
+      if (doc.containsKey("pressure")) pressure = doc["pressure"].as<int16_t>();
+      if (doc.containsKey("humidity")) humidity = doc["humidity"].as<uint8_t>();
+      if (doc.containsKey("wind")) windSpeed = doc["wind"].as<uint8_t>();
       if (doc.containsKey("desc")) description = doc["desc"].as<const char*>();
       if (doc.containsKey("weather") && doc["weather"].is<const char*>()) {
         description = doc["weather"].as<const char*>();
@@ -317,9 +326,10 @@ void processIncomingJson(const String &jsonPayload) {
       }
     }
 
-    updateWeather(temperature, description, sunriseH, sunriseM, sunsetH, sunsetM);
-    sendBLENotification("{\"status\":\"ok\",\"message\":\"Weather updated with dynamic dawn/dusk\"}");
+    updateWeather(temperature, pressure, humidity, windSpeed, description, sunriseH, sunriseM, sunsetH, sunsetM);
+    sendBLENotification("{\"status\":\"ok\",\"message\":\"Weather updated with atmospheric data & dynamic dawn/dusk\"}");
   }
+
 
   // 7. Weather Display Interval on Matrix (1..30 min)
   if (doc.containsKey("weatherIntervalMin")) {

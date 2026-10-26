@@ -107,7 +107,11 @@ struct AlarmSetting {
 struct WeatherData {
   bool valid;
   int16_t temp;              // Temperature in Celsius (e.g. 21)
+  int16_t pressure;          // Atmospheric pressure in hPa (e.g. 1014)
+  uint8_t humidity;          // Relative humidity in % (e.g. 83)
+  uint8_t windSpeed;         // Wind speed in km/h (e.g. 22)
   char desc[33];             // Detailed condition text (e.g. "Sunny", "Partly Cloudy", "Thunderstorm")
+  char scrollTicker[96];     // Preformatted ticker string (e.g. "1014 hPa | 83% Hum | 22 km/h | Overcast")
   uint32_t lastUpdateEpoch;  // Timestamp
   bool hasDawnDusk;          // True if dynamic sunrise/sunset is set
   uint8_t sunriseHour;       // Dawn / sunrise hour (e.g. 7)
@@ -115,6 +119,7 @@ struct WeatherData {
   uint8_t sunsetHour;        // Dusk / sunset hour (e.g. 17)
   uint8_t sunsetMinute;      // Dusk / sunset minute (e.g. 34)
 };
+
 
 struct DeviceSettings {
   uint32_t magic;
