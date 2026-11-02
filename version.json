@@ -1,6 +1,6 @@
 {
-  "version": "2.2.1",
+  "version": "2.2.2",
   "firmware_url": "https://dymek84.github.io/esp32_matrix_clock_package/firmware.bin",
-  "release_date": "2026-10-26",
-  "notes": "v2.2.1: Automatic CET/CEST Daylight Saving Time switching for NTP sync (fixes 1-hour winter/summer time offset)"
+  "release_date": "2026-11-02",
+  "notes": "v2.2.2: Atmospheric weather ticker (pressure, humidity & wind speed) and BLE heap release for reliable Cloud OTA updates"
 }

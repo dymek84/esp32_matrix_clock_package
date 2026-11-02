@@ -86,7 +86,7 @@
 // -----------------------------------------------------------------------------
 // Cloud OTA Firmware Update Settings
 // -----------------------------------------------------------------------------
-#define FIRMWARE_VERSION "2.2.1"
+#define FIRMWARE_VERSION "2.2.2"
 #define GITHUB_VERSION_URL "https://dymek84.github.io/esp32_matrix_clock_package/version.json"
 #define GITHUB_FIRMWARE_URL "https://dymek84.github.io/esp32_matrix_clock_package/firmware.bin"
 
